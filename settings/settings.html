@@ -1,0 +1,1072 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>Settings — Book Library</title>
+
+    <link rel="stylesheet" href="settings.css">
+</head>
+
+<body>
+
+<!-- =========================================================
+     HEADER
+========================================================= -->
+
+<header class="site-header">
+
+    <div class="header-container">
+
+        <a href="../index/index.html" class="logo">
+            <span class="logo-icon">📚</span>
+            <span class="logo-text">
+                <strong>Book</strong><span>Library</span>
+            </span>
+        </a>
+
+        <nav class="desktop-nav">
+
+            <a href="../index/index.html">Home</a>
+
+            <a href="../books/books.html">Books</a>
+
+            <a href="../categories/categories.html">Categories</a>
+
+            <a href="../favorites/favorites.html">Favorites</a>
+
+            <a href="../my-books/my-books.html">My Books</a>
+
+            <a href="settings.html" class="active">Settings</a>
+
+        </nav>
+
+        <div class="header-actions">
+
+            <button
+                class="icon-button"
+                id="themeToggle"
+                aria-label="Toggle theme">
+                🌙
+            </button>
+
+            <button
+                class="icon-button"
+                id="mobileMenuButton"
+                aria-label="Open menu">
+                ☰
+            </button>
+
+        </div>
+
+    </div>
+
+</header>
+
+
+<!-- =========================================================
+     MOBILE MENU
+========================================================= -->
+
+<div class="mobile-menu" id="mobileMenu">
+
+    <a href="../index/index.html">
+        🏠 <span>Home</span>
+    </a>
+
+    <a href="../books/books.html">
+        📚 <span>Books</span>
+    </a>
+
+    <a href="../categories/categories.html">
+        🗂️ <span>Categories</span>
+    </a>
+
+    <a href="../favorites/favorites.html">
+        ❤️ <span>Favorites</span>
+    </a>
+
+    <a href="../my-books/my-books.html">
+        📖 <span>My Books</span>
+    </a>
+
+    <a href="settings.html" class="active">
+        ⚙️ <span>Settings</span>
+    </a>
+
+</div>
+
+
+<!-- =========================================================
+     MAIN
+========================================================= -->
+
+<main>
+
+    <!-- PAGE HERO -->
+
+    <section class="settings-hero">
+
+        <div class="container">
+
+            <div class="hero-icon">
+                ⚙️
+            </div>
+
+            <div>
+                <span class="eyebrow">BOOK LIBRARY</span>
+
+                <h1>Settings</h1>
+
+                <p>
+                    Customize your reading experience and manage
+                    your Book Library data.
+                </p>
+            </div>
+
+        </div>
+
+    </section>
+
+
+    <!-- SETTINGS CONTENT -->
+
+    <section class="settings-section">
+
+        <div class="container settings-layout">
+
+
+            <!-- =================================================
+                 SIDEBAR
+            ================================================== -->
+
+            <aside class="settings-sidebar">
+
+                <button
+                    class="settings-tab active"
+                    data-section="appearance">
+
+                    <span>🎨</span>
+
+                    <div>
+                        <strong>Appearance</strong>
+                        <small>Theme & display</small>
+                    </div>
+
+                </button>
+
+
+                <button
+                    class="settings-tab"
+                    data-section="reading">
+
+                    <span>📖</span>
+
+                    <div>
+                        <strong>Reading</strong>
+                        <small>Reading preferences</small>
+                    </div>
+
+                </button>
+
+
+                <button
+                    class="settings-tab"
+                    data-section="library">
+
+                    <span>📚</span>
+
+                    <div>
+                        <strong>Library</strong>
+                        <small>Manage your library</small>
+                    </div>
+
+                </button>
+
+
+                <button
+                    class="settings-tab"
+                    data-section="data">
+
+                    <span>💾</span>
+
+                    <div>
+                        <strong>Data</strong>
+                        <small>Storage & reset</small>
+                    </div>
+
+                </button>
+
+
+                <button
+                    class="settings-tab"
+                    data-section="about">
+
+                    <span>ℹ️</span>
+
+                    <div>
+                        <strong>About</strong>
+                        <small>App information</small>
+                    </div>
+
+                </button>
+
+            </aside>
+
+
+            <!-- =================================================
+                 SETTINGS PANELS
+            ================================================== -->
+
+            <div class="settings-content">
+
+
+                <!-- =================================================
+                     APPEARANCE
+                ================================================== -->
+
+                <section
+                    class="settings-panel active"
+                    id="appearance">
+
+                    <div class="panel-heading">
+
+                        <div>
+
+                            <span class="panel-label">
+                                APPEARANCE
+                            </span>
+
+                            <h2>Customize Appearance</h2>
+
+                            <p>
+                                Change how Book Library looks on
+                                your device.
+                            </p>
+
+                        </div>
+
+                        <span class="heading-icon">🎨</span>
+
+                    </div>
+
+
+                    <!-- THEME -->
+
+                    <div class="setting-card">
+
+                        <div class="setting-info">
+
+                            <div class="setting-icon">
+                                🌙
+                            </div>
+
+                            <div>
+
+                                <h3>Theme</h3>
+
+                                <p>
+                                    Choose between light, dark,
+                                    or system theme.
+                                </p>
+
+                            </div>
+
+                        </div>
+
+
+                        <select id="themeSelect">
+
+                            <option value="light">
+                                Light
+                            </option>
+
+                            <option value="dark">
+                                Dark
+                            </option>
+
+                            <option value="system">
+                                System
+                            </option>
+
+                        </select>
+
+                    </div>
+
+
+                    <!-- FONT SIZE -->
+
+                    <div class="setting-card">
+
+                        <div class="setting-info">
+
+                            <div class="setting-icon">
+                                🔤
+                            </div>
+
+                            <div>
+
+                                <h3>Font Size</h3>
+
+                                <p>
+                                    Adjust the text size across
+                                    the application.
+                                </p>
+
+                            </div>
+
+                        </div>
+
+
+                        <div class="font-controls">
+
+                            <button
+                                id="fontDecrease"
+                                aria-label="Decrease font size">
+                                A−
+                            </button>
+
+                            <span id="fontSizeValue">
+                                100%
+                            </span>
+
+                            <button
+                                id="fontIncrease"
+                                aria-label="Increase font size">
+                                A+
+                            </button>
+
+                        </div>
+
+                    </div>
+
+
+                    <!-- ANIMATIONS -->
+
+                    <div class="setting-card">
+
+                        <div class="setting-info">
+
+                            <div class="setting-icon">
+                                ✨
+                            </div>
+
+                            <div>
+
+                                <h3>Animations</h3>
+
+                                <p>
+                                    Enable or disable interface
+                                    animations.
+                                </p>
+
+                            </div>
+
+                        </div>
+
+
+                        <label class="switch">
+
+                            <input
+                                type="checkbox"
+                                id="animationsToggle"
+                                checked>
+
+                            <span class="slider"></span>
+
+                        </label>
+
+                    </div>
+
+                </section>
+
+
+
+                <!-- =================================================
+                     READING
+                ================================================== -->
+
+                <section
+                    class="settings-panel"
+                    id="reading">
+
+                    <div class="panel-heading">
+
+                        <div>
+
+                            <span class="panel-label">
+                                READING
+                            </span>
+
+                            <h2>Reading Preferences</h2>
+
+                            <p>
+                                Set your preferred reading options.
+                            </p>
+
+                        </div>
+
+                        <span class="heading-icon">📖</span>
+
+                    </div>
+
+
+                    <!-- OPEN BOOK -->
+
+                    <div class="setting-card">
+
+                        <div class="setting-info">
+
+                            <div class="setting-icon">
+                                📚
+                            </div>
+
+                            <div>
+
+                                <h3>Book Opening</h3>
+
+                                <p>
+                                    Choose what happens when you
+                                    open a book.
+                                </p>
+
+                            </div>
+
+                        </div>
+
+
+                        <select id="bookOpening">
+
+                            <option value="details">
+                                Book Details
+                            </option>
+
+                            <option value="reader">
+                                Reader when available
+                            </option>
+
+                        </select>
+
+                    </div>
+
+
+                    <!-- READER WIDTH -->
+
+                    <div class="setting-card">
+
+                        <div class="setting-info">
+
+                            <div class="setting-icon">
+                                ↔️
+                            </div>
+
+                            <div>
+
+                                <h3>Reading Width</h3>
+
+                                <p>
+                                    Select the preferred reading
+                                    area width.
+                                </p>
+
+                            </div>
+
+                        </div>
+
+
+                        <select id="readingWidth">
+
+                            <option value="comfortable">
+                                Comfortable
+                            </option>
+
+                            <option value="wide">
+                                Wide
+                            </option>
+
+                            <option value="full">
+                                Full Width
+                            </option>
+
+                        </select>
+
+                    </div>
+
+
+                    <!-- REMEMBER POSITION -->
+
+                    <div class="setting-card">
+
+                        <div class="setting-info">
+
+                            <div class="setting-icon">
+                                🔖
+                            </div>
+
+                            <div>
+
+                                <h3>Remember Reading Position</h3>
+
+                                <p>
+                                    Remember your reading position
+                                    when supported.
+                                </p>
+
+                            </div>
+
+                        </div>
+
+
+                        <label class="switch">
+
+                            <input
+                                type="checkbox"
+                                id="rememberPosition"
+                                checked>
+
+                            <span class="slider"></span>
+
+                        </label>
+
+                    </div>
+
+                </section>
+
+
+
+                <!-- =================================================
+                     LIBRARY
+                ================================================== -->
+
+                <section
+                    class="settings-panel"
+                    id="library">
+
+                    <div class="panel-heading">
+
+                        <div>
+
+                            <span class="panel-label">
+                                LIBRARY
+                            </span>
+
+                            <h2>Library Management</h2>
+
+                            <p>
+                                Manage your favorites and personal
+                                book collection.
+                            </p>
+
+                        </div>
+
+                        <span class="heading-icon">📚</span>
+
+                    </div>
+
+
+                    <!-- FAVORITES -->
+
+                    <div class="setting-card">
+
+                        <div class="setting-info">
+
+                            <div class="setting-icon">
+                                ❤️
+                            </div>
+
+                            <div>
+
+                                <h3>Favorites</h3>
+
+                                <p>
+                                    Books saved to your favorites.
+                                </p>
+
+                            </div>
+
+                        </div>
+
+
+                        <strong
+                            class="data-count"
+                            id="favoritesCount">
+                            0
+                        </strong>
+
+                    </div>
+
+
+                    <!-- MY BOOKS -->
+
+                    <div class="setting-card">
+
+                        <div class="setting-info">
+
+                            <div class="setting-icon">
+                                📖
+                            </div>
+
+                            <div>
+
+                                <h3>My Books</h3>
+
+                                <p>
+                                    Books you have added to your
+                                    personal library.
+                                </p>
+
+                            </div>
+
+                        </div>
+
+
+                        <strong
+                            class="data-count"
+                            id="myBooksCount">
+                            0
+                        </strong>
+
+                    </div>
+
+
+                    <!-- RECENT -->
+
+                    <div class="setting-card">
+
+                        <div class="setting-info">
+
+                            <div class="setting-icon">
+                                🕘
+                            </div>
+
+                            <div>
+
+                                <h3>Recently Viewed</h3>
+
+                                <p>
+                                    Books recently opened in the app.
+                                </p>
+
+                            </div>
+
+                        </div>
+
+
+                        <strong
+                            class="data-count"
+                            id="recentCount">
+                            0
+                        </strong>
+
+                    </div>
+
+                </section>
+
+
+
+                <!-- =================================================
+                     DATA
+                ================================================== -->
+
+                <section
+                    class="settings-panel"
+                    id="data">
+
+                    <div class="panel-heading">
+
+                        <div>
+
+                            <span class="panel-label">
+                                DATA
+                            </span>
+
+                            <h2>Data & Storage</h2>
+
+                            <p>
+                                Manage the information saved on
+                                this device.
+                            </p>
+
+                        </div>
+
+                        <span class="heading-icon">💾</span>
+
+                    </div>
+
+
+                    <!-- CLEAR RECENT -->
+
+                    <div class="setting-card action-card">
+
+                        <div class="setting-info">
+
+                            <div class="setting-icon">
+                                🕘
+                            </div>
+
+                            <div>
+
+                                <h3>Clear Recently Viewed</h3>
+
+                                <p>
+                                    Remove your recently viewed
+                                    book history.
+                                </p>
+
+                            </div>
+
+                        </div>
+
+
+                        <button
+                            class="danger-outline"
+                            id="clearRecent">
+                            Clear
+                        </button>
+
+                    </div>
+
+
+                    <!-- CLEAR FAVORITES -->
+
+                    <div class="setting-card action-card">
+
+                        <div class="setting-info">
+
+                            <div class="setting-icon">
+                                ❤️
+                            </div>
+
+                            <div>
+
+                                <h3>Clear Favorites</h3>
+
+                                <p>
+                                    Remove all books from favorites.
+                                </p>
+
+                            </div>
+
+                        </div>
+
+
+                        <button
+                            class="danger-outline"
+                            id="clearFavorites">
+                            Clear
+                        </button>
+
+                    </div>
+
+
+                    <!-- CLEAR MY BOOKS -->
+
+                    <div class="setting-card action-card">
+
+                        <div class="setting-info">
+
+                            <div class="setting-icon">
+                                📚
+                            </div>
+
+                            <div>
+
+                                <h3>Clear My Books</h3>
+
+                                <p>
+                                    Remove all books from your
+                                    personal library.
+                                </p>
+
+                            </div>
+
+                        </div>
+
+
+                        <button
+                            class="danger-outline"
+                            id="clearMyBooks">
+                            Clear
+                        </button>
+
+                    </div>
+
+
+                    <!-- RESET -->
+
+                    <div class="reset-card">
+
+                        <div>
+
+                            <span class="reset-icon">
+                                ⚠️
+                            </span>
+
+                            <h3>Reset All Settings</h3>
+
+                            <p>
+                                Restore Book Library settings to
+                                their default values.
+                            </p>
+
+                        </div>
+
+
+                        <button
+                            class="danger-button"
+                            id="resetSettings">
+                            Reset Settings
+                        </button>
+
+                    </div>
+
+                </section>
+
+
+
+                <!-- =================================================
+                     ABOUT
+                ================================================== -->
+
+                <section
+                    class="settings-panel"
+                    id="about">
+
+                    <div class="panel-heading">
+
+                        <div>
+
+                            <span class="panel-label">
+                                ABOUT
+                            </span>
+
+                            <h2>About Book Library</h2>
+
+                            <p>
+                                Information about this application.
+                            </p>
+
+                        </div>
+
+                        <span class="heading-icon">ℹ️</span>
+
+                    </div>
+
+
+                    <div class="about-card">
+
+                        <div class="about-logo">
+                            📚
+                        </div>
+
+                        <h2>Book Library</h2>
+
+                        <p>
+                            Discover, explore and organize books
+                            from around the world.
+                        </p>
+
+                        <span class="version">
+                            Version 1.0.0
+                        </span>
+
+                    </div>
+
+
+                    <div class="info-list">
+
+                        <div>
+                            <span>📚</span>
+                            <strong>Book Source</strong>
+                            <span>Open Library</span>
+                        </div>
+
+                        <div>
+                            <span>🌐</span>
+                            <strong>Search</strong>
+                            <span>Open Library API</span>
+                        </div>
+
+                        <div>
+                            <span>💾</span>
+                            <strong>Storage</strong>
+                            <span>Browser Local Storage</span>
+                        </div>
+
+                        <div>
+                            <span>📱</span>
+                            <strong>Platform</strong>
+                            <span>Web App</span>
+                        </div>
+
+                    </div>
+
+
+                    <div class="about-note">
+
+                        <span>💡</span>
+
+                        <p>
+                            Your favorites, My Books and other
+                            preferences are stored locally in
+                            your browser.
+                        </p>
+
+                    </div>
+
+                </section>
+
+
+            </div>
+
+        </div>
+
+    </section>
+
+</main>
+
+
+
+<!-- =========================================================
+     FOOTER
+========================================================= -->
+
+<footer class="site-footer">
+
+    <div class="container">
+
+        <div class="footer-grid">
+
+            <div class="footer-brand">
+
+                <a href="../index/index.html" class="logo">
+
+                    <span class="logo-icon">📚</span>
+
+                    <span class="logo-text">
+                        <strong>Book</strong><span>Library</span>
+                    </span>
+
+                </a>
+
+                <p>
+                    Discover, explore and organize books from
+                    around the world.
+                </p>
+
+            </div>
+
+
+            <div class="footer-column">
+
+                <h4>Library</h4>
+
+                <a href="../books/books.html">
+                    All Books
+                </a>
+
+                <a href="../categories/categories.html">
+                    Categories
+                </a>
+
+                <a href="../favorites/favorites.html">
+                    Favorites
+                </a>
+
+            </div>
+
+
+            <div class="footer-column">
+
+                <h4>Explore</h4>
+
+                <a href="../index/index.html">
+                    Home
+                </a>
+
+                <a href="../my-books/my-books.html">
+                    My Books
+                </a>
+
+                <a href="settings.html">
+                    Settings
+                </a>
+
+            </div>
+
+        </div>
+
+
+        <div class="footer-bottom">
+
+            <span>
+                © 2026 Book Library
+            </span>
+
+            <span>
+                Powered by Open Library
+            </span>
+
+        </div>
+
+    </div>
+
+</footer>
+
+
+
+<!-- =========================================================
+     MOBILE BOTTOM NAV
+========================================================= -->
+
+<nav class="mobile-bottom-nav">
+
+    <a href="../index/index.html">
+        <span>🏠</span>
+        <small>Home</small>
+    </a>
+
+    <a href="../books/books.html">
+        <span>📚</span>
+        <small>Books</small>
+    </a>
+
+    <a href="../categories/categories.html">
+        <span>🗂️</span>
+        <small>Categories</small>
+    </a>
+
+    <a href="../favorites/favorites.html">
+        <span>❤️</span>
+        <small>Favorites</small>
+    </a>
+
+    <a href="settings.html" class="active">
+        <span>⚙️</span>
+        <small>Settings</small>
+    </a>
+
+</nav>
+
+
+
+<!-- =========================================================
+     TOAST
+========================================================= -->
+
+<div class="toast" id="toast">
+
+    <span id="toastIcon">✓</span>
+
+    <span id="toastMessage">
+        Done
+    </span>
+
+</div>
+
+
+<script src="settings.js"></script>
+
+</body>
+</html>
