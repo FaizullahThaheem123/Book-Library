@@ -1,6 +1,6 @@
 /* =========================================================
    BOOK LIBRARY — BOOK DETAILS JAVASCRIPT
-   Version 3.3 (Final - Honest & Clear)
+   Version 3.4 (Unified Header + Theme Sync)
 ========================================================= */
 
 "use strict";
@@ -12,6 +12,7 @@ const CONFIG = {
     FAVORITES_KEY: "bookLibraryFavorites",
     MY_BOOKS_KEY: "bookLibraryMyBooks",
     THEME_KEY: "bookLibraryTheme",
+    SEARCH_PAGE: "../search/search.html",
     RELATED_LIMIT: 5
 };
 
@@ -53,6 +54,7 @@ const elements = {
     relatedGrid: document.getElementById("relatedGrid"),
     relatedSection: document.getElementById("relatedSection"),
     themeToggle: document.getElementById("themeToggle"),
+    headerSearchBtn: document.getElementById("headerSearchBtn"),
     mobileMenuButton: document.getElementById("mobileMenuButton"),
     mobileMenu: document.getElementById("mobileMenu"),
     toast: document.getElementById("toast"),
@@ -66,17 +68,96 @@ const elements = {
 let toastTimer = null;
 
 document.addEventListener("DOMContentLoaded", function () {
+    initializeHeaderEvents();
     initializeTheme();
     initializeMobileMenu();
     initializeNavigation();
     initializeFavorite();
     initializeMyBooks();
     initializeActions();
+    setupThemeSync();
     loadBook();
 });
 
+/* =========================================================
+   THEME SYNC
+========================================================= */
+function setupThemeSync() {
+    window.addEventListener("storage", function(e) {
+        if (e.key === CONFIG.THEME_KEY) {
+            const newTheme = e.newValue;
+            if (newTheme === "dark") {
+                document.body.classList.add("dark");
+                if (elements.themeToggle) elements.themeToggle.textContent = "☀️";
+            } else {
+                document.body.classList.remove("dark");
+                if (elements.themeToggle) elements.themeToggle.textContent = "🌙";
+            }
+        }
+    });
+}
+
+/* =========================================================
+   HEADER EVENTS (Search Button)
+========================================================= */
+function initializeHeaderEvents() {
+    if (elements.headerSearchBtn) {
+        elements.headerSearchBtn.addEventListener("click", function () {
+            window.location.href = CONFIG.SEARCH_PAGE;
+        });
+    }
+}
+
+/* =========================================================
+   MOBILE MENU (UNIFIED - SAME AS BOOKS PAGE)
+========================================================= */
+function initializeMobileMenu() {
+    if (!elements.mobileMenuButton || !elements.mobileMenu) return;
+
+    elements.mobileMenuButton.addEventListener("click", function (e) {
+        e.stopPropagation();
+        elements.mobileMenu.classList.toggle("open");
+    });
+
+    document.addEventListener("click", function (e) {
+        if (elements.mobileMenu.classList.contains("open") &&
+            !elements.mobileMenu.contains(e.target) &&
+            !elements.mobileMenuButton.contains(e.target)) {
+            elements.mobileMenu.classList.remove("open");
+        }
+    });
+
+    elements.mobileMenu.querySelectorAll("a").forEach(function (link) {
+        link.addEventListener("click", function () {
+            elements.mobileMenu.classList.remove("open");
+        });
+    });
+}
+
+/* =========================================================
+   THEME
+========================================================= */
+function initializeTheme() {
+    var savedTheme = localStorage.getItem(CONFIG.THEME_KEY);
+    if (savedTheme === "dark") {
+        document.body.classList.add("dark");
+        if (elements.themeToggle) elements.themeToggle.textContent = "☀️";
+    }
+    if (elements.themeToggle) {
+        elements.themeToggle.addEventListener("click", function () {
+            document.body.classList.toggle("dark");
+            var dark = document.body.classList.contains("dark");
+            localStorage.setItem(CONFIG.THEME_KEY, dark ? "dark" : "light");
+            this.textContent = dark ? "☀️" : "🌙";
+        });
+    }
+}
+
+/* =========================================================
+   REST OF ORIGINAL BOOK DETAILS LOGIC
+========================================================= */
 function getBookKey() {
-    const params = new URLSearchParams(window.location.search);
+    var params = new URLSearchParams(window.location.search);
     return params.get("key") || "";
 }
 
@@ -88,7 +169,7 @@ function normalizeKey(key) {
 function getFirstIA(value) {
     if (!value) return null;
     if (Array.isArray(value)) {
-        const first = value.find(item => typeof item === "string" && item.trim());
+        var first = value.find(function(item) { return typeof item === "string" && item.trim(); });
         return first ? first.trim() : null;
     }
     if (typeof value === "string" && value.trim()) return value.trim();
@@ -103,19 +184,19 @@ async function loadBook() {
     }
     showLoading();
     try {
-        const workKey = normalizeKey(state.key);
-        const response = await fetch(`${CONFIG.API_URL}/works/${workKey}.json`);
+        var workKey = normalizeKey(state.key);
+        var response = await fetch(CONFIG.API_URL + "/works/" + workKey + ".json");
         if (!response.ok) throw new Error("Book not found.");
-        const data = await response.json();
+        var data = await response.json();
         state.book = data;
 
-        let ia = getFirstIA(data.ia) || getFirstIA(data.ia_metadata?.identifier);
+        var ia = getFirstIA(data.ia) || getFirstIA(data.ia_metadata?.identifier);
         state.ia = ia;
 
         await enrichBookData();
 
         if (!state.ia) {
-            const fallback = getFirstIA(data.ia_metadata?.identifier);
+            var fallback = getFirstIA(data.ia_metadata?.identifier);
             if (fallback) state.ia = fallback;
         }
 
@@ -134,25 +215,25 @@ async function loadBook() {
 }
 
 async function enrichBookData() {
-    const book = state.book;
+    var book = state.book;
     if (Array.isArray(book.authors) && book.authors.length) {
-        const authors = await Promise.all(book.authors.slice(0,3).map(item => getAuthorName(item)));
+        var authors = await Promise.all(book.authors.slice(0,3).map(function(item) { return getAuthorName(item); }));
         book._authors = authors.filter(Boolean);
     }
     try {
-        const url = new URL(CONFIG.SEARCH_URL);
+        var url = new URL(CONFIG.SEARCH_URL);
         url.searchParams.set("title", book.title || "");
         url.searchParams.set("limit", "5");
         url.searchParams.set("fields", "key,title,author_name,first_publish_year,cover_i,publisher,number_of_pages_median,language,ia");
-        const response = await fetch(url.toString());
+        var response = await fetch(url.toString());
         if (response.ok) {
-            const data = await response.json();
+            var data = await response.json();
             if (data.docs && data.docs.length) {
-                let match = data.docs.find(item => normalizeText(item.title) === normalizeText(book.title));
+                var match = data.docs.find(function(item) { return normalizeText(item.title) === normalizeText(book.title); });
                 if (!match) match = data.docs[0];
                 book._edition = match;
                 if (!state.ia) {
-                    const editionIA = getFirstIA(match.ia);
+                    var editionIA = getFirstIA(match.ia);
                     if (editionIA) {
                         state.ia = editionIA;
                         state.readable = true;
@@ -167,20 +248,20 @@ async function enrichBookData() {
 
 async function getAuthorName(authorRef) {
     try {
-        const key = authorRef.author.key;
+        var key = authorRef.author.key;
         if (!key) return "";
-        const response = await fetch(`${CONFIG.API_URL}${key}.json`);
+        var response = await fetch(CONFIG.API_URL + key + ".json");
         if (!response.ok) return "";
-        const data = await response.json();
+        var data = await response.json();
         return data.name || "";
     } catch { return ""; }
 }
 
 function renderBook() {
-    const book = state.book;
-    const edition = book._edition || {};
-    const title = cleanText(book.title || edition.title || "Unknown Title");
-    const author = getDisplayedAuthor(book, edition);
+    var book = state.book;
+    var edition = book._edition || {};
+    var title = cleanText(book.title || edition.title || "Unknown Title");
+    var author = getDisplayedAuthor(book, edition);
     elements.bookTitle.textContent = title;
     elements.bookAuthor.textContent = author;
     elements.bookYear.textContent = getYear(book, edition);
@@ -192,30 +273,26 @@ function renderBook() {
     renderSubjects(book);
     updateFavoriteState();
 
-    // ========== READER / AVAILABILITY LOGIC (HONEST) ==========
-    const readBtn = elements.readButton;
-    const readerContainer = elements.readerContainer;
-    const readerIframe = elements.readerIframe;
-    const accessMsg = elements.accessMessage;
+    var readBtn = elements.readButton;
+    var readerContainer = elements.readerContainer;
+    var readerIframe = elements.readerIframe;
+    var accessMsg = elements.accessMessage;
 
     if (state.ia) {
-        // Book is readable
         readBtn.innerHTML = '📖 <span>Read Now</span>';
         readBtn.style.opacity = '1';
         readBtn.style.cursor = 'pointer';
         readBtn.onclick = function() {
-            const embedUrl = `https://archive.org/embed/${encodeURIComponent(state.ia)}`;
+            var embedUrl = "https://archive.org/embed/" + encodeURIComponent(state.ia);
             readerIframe.src = embedUrl;
             readerContainer.style.display = 'block';
             readerContainer.scrollIntoView({ behavior: 'smooth', block: 'start' });
         };
         if (accessMsg) {
             accessMsg.style.display = 'flex';
-            accessMsg.querySelector('p').textContent =
-                '✅ This book is available to read online. Click "Read Now" to start reading.';
+            accessMsg.querySelector('p').textContent = '✅ This book is available to read online. Click "Read Now" to start reading.';
         }
     } else {
-        // Book is NOT readable
         readBtn.innerHTML = '📖 <span>Not Available</span>';
         readBtn.style.opacity = '0.6';
         readBtn.style.cursor = 'not-allowed';
@@ -224,8 +301,7 @@ function renderBook() {
         };
         if (accessMsg) {
             accessMsg.style.display = 'flex';
-            accessMsg.querySelector('p').textContent =
-                '❌ This book is not available for online reading. You can still add it to your library and track your reading progress.';
+            accessMsg.querySelector('p').textContent = '❌ This book is not available for online reading. You can still add it to your library and track your reading progress.';
         }
         if (readerContainer) readerContainer.style.display = 'none';
         if (readerIframe) readerIframe.src = '';
@@ -252,61 +328,69 @@ function getPages(book, edition) {
 function getLanguage(book, edition) {
     if (Array.isArray(edition.language) && edition.language.length) return formatLanguage(edition.language[0]);
     if (Array.isArray(book.languages) && book.languages.length) {
-        const first = book.languages[0];
+        var first = book.languages[0];
         if (first && first.key) return formatLanguage(first.key);
     }
     return "—";
 }
 
 function formatLanguage(code) {
-    const codeStr = String(code).split("/").pop().toLowerCase();
-    const map = { eng:"English", urd:"Urdu", ara:"Arabic", fas:"Persian", hin:"Hindi", spa:"Spanish", fra:"French", deu:"German", ita:"Italian", por:"Portuguese", rus:"Russian", tur:"Turkish", ben:"Bengali", ind:"Indonesian", jpn:"Japanese", kor:"Korean", chi:"Chinese" };
+    var codeStr = String(code).split("/").pop().toLowerCase();
+    var map = { eng:"English", urd:"Urdu", ara:"Arabic", fas:"Persian", hin:"Hindi", spa:"Spanish", fra:"French", deu:"German", ita:"Italian", por:"Portuguese", rus:"Russian", tur:"Turkish", ben:"Bengali", ind:"Indonesian", jpn:"Japanese", kor:"Korean", chi:"Chinese" };
     return map[codeStr] || codeStr.toUpperCase();
 }
 
 function renderCover(book, edition, title) {
-    let coverId = book.covers && book.covers.length ? book.covers[0] : null;
+    var coverId = book.covers && book.covers.length ? book.covers[0] : null;
     if (!coverId) coverId = edition.cover_i || null;
     if (!coverId) {
         elements.bookCover.style.display = "none";
         elements.coverFallback.classList.add("show");
         return;
     }
-    elements.bookCover.src = `${CONFIG.COVER_URL}/${coverId}-L.jpg`;
+    elements.bookCover.src = CONFIG.COVER_URL + "/" + coverId + "-L.jpg";
     elements.bookCover.alt = title;
     elements.bookCover.style.display = "block";
     elements.coverFallback.classList.remove("show");
-    elements.bookCover.onerror = function () {
+    elements.bookCover.onerror = function() {
         this.style.display = "none";
         elements.coverFallback.classList.add("show");
     };
 }
 
 function renderDescription(book) {
-    let desc = book.description;
+    var desc = book.description;
     if (typeof desc === "object" && desc !== null) desc = desc.value;
     if (!desc) desc = "No description is available for this book yet.";
     elements.bookDescription.textContent = cleanText(desc);
 }
 
 function renderSubjects(book) {
-    const subjects = Array.isArray(book.subjects) ? book.subjects : [];
+    var subjects = Array.isArray(book.subjects) ? book.subjects : [];
     if (!subjects.length) {
-        elements.subjectList.innerHTML = `<span class="subject-tag">No subjects available</span>`;
+        elements.subjectList.innerHTML = '<span class="subject-tag">No subjects available</span>';
         return;
     }
-    const unique = [...new Set(subjects.map(s => cleanText(s)).filter(Boolean))];
-    elements.subjectList.innerHTML = unique.slice(0,15).map(s => `<span class="subject-tag">${escapeHTML(s)}</span>`).join("");
+    var unique = [];
+    var seen = {};
+    subjects.forEach(function(s) {
+        var cleaned = cleanText(s);
+        if (cleaned && !seen[cleaned]) {
+            seen[cleaned] = true;
+            unique.push(cleaned);
+        }
+    });
+    elements.subjectList.innerHTML = unique.slice(0,15).map(function(s) {
+        return '<span class="subject-tag">' + escapeHTML(s) + '</span>';
+    }).join("");
 }
 
 /* =========================================================
    FAVORITES
 ========================================================= */
-
 function getFavorites() {
     try { return JSON.parse(localStorage.getItem(CONFIG.FAVORITES_KEY)) || []; } catch { return []; }
 }
-
 function saveFavorites(fav) { localStorage.setItem(CONFIG.FAVORITES_KEY, JSON.stringify(fav)); }
 
 function initializeFavorite() {
@@ -317,15 +401,15 @@ function initializeFavorite() {
 
 function toggleFavorite() {
     if (!state.book) return;
-    let favorites = getFavorites();
-    const normKey = normalizeKey(state.key);
-    const index = favorites.findIndex(item => normalizeKey(item.key || item) === normKey);
+    var favorites = getFavorites();
+    var normKey = normalizeKey(state.key);
+    var index = favorites.findIndex(function(item) { return normalizeKey(item.key || item) === normKey; });
     if (index !== -1) {
         favorites.splice(index, 1);
         state.favorite = false;
         showToast("Removed from favorites.", "♡");
     } else {
-        const edition = state.book._edition || {};
+        var edition = state.book._edition || {};
         favorites.push({
             key: normKey,
             title: state.book.title || "Unknown Title",
@@ -341,7 +425,7 @@ function toggleFavorite() {
 }
 
 function updateFavoriteState() {
-    state.favorite = getFavorites().some(item => normalizeKey(item.key || item) === normalizeKey(state.key));
+    state.favorite = getFavorites().some(function(item) { return normalizeKey(item.key || item) === normalizeKey(state.key); });
     if (state.favorite) {
         elements.favoriteButton.classList.add("active");
         elements.favoriteIcon.textContent = "♥";
@@ -356,11 +440,9 @@ function updateFavoriteState() {
 /* =========================================================
    MY BOOKS
 ========================================================= */
-
 function getMyBooks() {
     try { return JSON.parse(localStorage.getItem(CONFIG.MY_BOOKS_KEY)) || []; } catch { return []; }
 }
-
 function saveMyBooks(books) { localStorage.setItem(CONFIG.MY_BOOKS_KEY, JSON.stringify(books)); }
 
 function initializeMyBooks() {
@@ -370,8 +452,8 @@ function initializeMyBooks() {
 }
 
 function updateMyBooksState() {
-    const books = getMyBooks();
-    const existing = books.find(item => normalizeKey(item.key || item) === normalizeKey(state.key));
+    var books = getMyBooks();
+    var existing = books.find(function(item) { return normalizeKey(item.key || item) === normalizeKey(state.key); });
     if (existing) {
         state.inMyBooks = true;
         state.myBookStatus = normalizeStatus(existing.status);
@@ -397,12 +479,12 @@ function updateMyBooksButton() {
 
 function toggleMyBook() {
     if (!state.book) return;
-    let books = getMyBooks();
-    const normKey = normalizeKey(state.key);
-    const existingIndex = books.findIndex(item => normalizeKey(item.key || item) === normKey);
+    var books = getMyBooks();
+    var normKey = normalizeKey(state.key);
+    var existingIndex = books.findIndex(function(item) { return normalizeKey(item.key || item) === normKey; });
     if (existingIndex !== -1) {
-        const current = normalizeStatus(books[existingIndex].status);
-        const next = getNextStatus(current);
+        var current = normalizeStatus(books[existingIndex].status);
+        var next = getNextStatus(current);
         books[existingIndex].status = next;
         books[existingIndex].progress = next === "finished" ? 100 : (next === "want" ? 0 : Number(books[existingIndex].progress || 0));
         books[existingIndex].updatedAt = Date.now();
@@ -410,10 +492,10 @@ function toggleMyBook() {
         state.myBookStatus = next;
         saveMyBooks(books);
         updateMyBooksButton();
-        showToast(`Book moved to ${getStatusText(next)}.`, "✓");
+        showToast("Book moved to " + getStatusText(next) + ".", "✓");
     } else {
-        const edition = state.book._edition || {};
-        const newBook = {
+        var edition = state.book._edition || {};
+        var newBook = {
             key: normKey,
             id: normKey,
             title: state.book.title || "Unknown Title",
@@ -462,12 +544,11 @@ function getStatusText(status) {
 /* =========================================================
    ACTIONS
 ========================================================= */
-
 function initializeActions() {
     if (elements.openLibraryButton) {
-        elements.openLibraryButton.addEventListener("click", function () {
+        elements.openLibraryButton.addEventListener("click", function() {
             if (!state.key) return;
-            window.open(`${CONFIG.API_URL}/works/${normalizeKey(state.key)}`, "_blank", "noopener,noreferrer");
+            window.open(CONFIG.API_URL + "/works/" + normalizeKey(state.key), "_blank", "noopener,noreferrer");
         });
     }
 }
@@ -475,22 +556,21 @@ function initializeActions() {
 /* =========================================================
    RELATED BOOKS
 ========================================================= */
-
 async function loadRelatedBooks() {
-    const book = state.book;
-    const subjects = Array.isArray(book.subjects) ? book.subjects : [];
-    let query = subjects[0] || book.title || "popular books";
+    var book = state.book;
+    var subjects = Array.isArray(book.subjects) ? book.subjects : [];
+    var query = subjects[0] || book.title || "popular books";
     query = String(query).split(",")[0].trim();
     try {
-        const url = new URL(CONFIG.SEARCH_URL);
+        var url = new URL(CONFIG.SEARCH_URL);
         url.searchParams.set("q", query);
         url.searchParams.set("limit", String(CONFIG.RELATED_LIMIT + 5));
         url.searchParams.set("fields", "key,title,author_name,cover_i,first_publish_year");
-        const response = await fetch(url.toString());
+        var response = await fetch(url.toString());
         if (!response.ok) throw new Error("Related books unavailable");
-        const data = await response.json();
-        let books = Array.isArray(data.docs) ? data.docs : [];
-        books = books.filter(item => normalizeKey(item.key) !== normalizeKey(state.key));
+        var data = await response.json();
+        var books = Array.isArray(data.docs) ? data.docs : [];
+        books = books.filter(function(item) { return normalizeKey(item.key) !== normalizeKey(state.key); });
         books = books.slice(0, CONFIG.RELATED_LIMIT);
         renderRelatedBooks(books);
     } catch (error) {
@@ -504,38 +584,35 @@ function renderRelatedBooks(books) {
         elements.relatedSection.style.display = "none";
         return;
     }
-    elements.relatedGrid.innerHTML = books.map(book => createRelatedCard(book)).join("");
-    document.querySelectorAll("[data-related-key]").forEach(card => {
-        card.addEventListener("click", function () {
-            const key = this.dataset.relatedKey;
-            window.location.href = `book-details.html?key=${encodeURIComponent(key)}`;
+    elements.relatedGrid.innerHTML = books.map(function(book) { return createRelatedCard(book); }).join("");
+    document.querySelectorAll("[data-related-key]").forEach(function(card) {
+        card.addEventListener("click", function() {
+            var key = this.dataset.relatedKey;
+            window.location.href = "book-details.html?key=" + encodeURIComponent(key);
         });
     });
 }
 
 function createRelatedCard(book) {
-    const title = cleanText(book.title || "Unknown Title");
-    const author = Array.isArray(book.author_name) && book.author_name.length ? book.author_name.slice(0,1).join(", ") : "Unknown Author";
-    const cover = book.cover_i ? `${CONFIG.COVER_URL}/${book.cover_i}-M.jpg` : "";
-    const coverHTML = cover ? `<img src="${escapeHTML(cover)}" alt="${escapeHTML(title)}" loading="lazy">` : `<div style="height:100%;display:grid;place-items:center;font-size:35px;">📚</div>`;
-    return `
-        <article class="related-card" data-related-key="${escapeHTML(book.key || "")}">
-            <div class="related-cover">${coverHTML}</div>
-            <div class="related-content">
-                <h3 class="related-title">${escapeHTML(title)}</h3>
-                <p class="related-author">${escapeHTML(author)}</p>
-            </div>
-        </article>
-    `;
+    var title = cleanText(book.title || "Unknown Title");
+    var author = Array.isArray(book.author_name) && book.author_name.length ? book.author_name.slice(0,1).join(", ") : "Unknown Author";
+    var cover = book.cover_i ? CONFIG.COVER_URL + "/" + book.cover_i + "-M.jpg" : "";
+    var coverHTML = cover ? '<img src="' + escapeHTML(cover) + '" alt="' + escapeHTML(title) + '" loading="lazy">' : '<div style="height:100%;display:grid;place-items:center;font-size:35px;">📚</div>';
+    return '<article class="related-card" data-related-key="' + escapeHTML(book.key || "") + '">' +
+        '<div class="related-cover">' + coverHTML + '</div>' +
+        '<div class="related-content">' +
+        '<h3 class="related-title">' + escapeHTML(title) + '</h3>' +
+        '<p class="related-author">' + escapeHTML(author) + '</p>' +
+        '</div>' +
+        '</article>';
 }
 
 /* =========================================================
    NAVIGATION
 ========================================================= */
-
 function initializeNavigation() {
     if (elements.backButton) {
-        elements.backButton.addEventListener("click", function () {
+        elements.backButton.addEventListener("click", function() {
             if (document.referrer && document.referrer.includes("/books/")) {
                 window.history.back();
             } else {
@@ -544,52 +621,15 @@ function initializeNavigation() {
         });
     }
     if (elements.errorBackButton) {
-        elements.errorBackButton.addEventListener("click", function () {
+        elements.errorBackButton.addEventListener("click", function() {
             window.location.href = "../books/books.html";
         });
     }
 }
 
 /* =========================================================
-   THEME
-========================================================= */
-
-function initializeTheme() {
-    const savedTheme = localStorage.getItem(CONFIG.THEME_KEY);
-    if (savedTheme === "dark") {
-        document.body.classList.add("dark");
-        if (elements.themeToggle) elements.themeToggle.textContent = "☀️";
-    }
-    if (elements.themeToggle) {
-        elements.themeToggle.addEventListener("click", function () {
-            document.body.classList.toggle("dark");
-            const dark = document.body.classList.contains("dark");
-            localStorage.setItem(CONFIG.THEME_KEY, dark ? "dark" : "light");
-            this.textContent = dark ? "☀️" : "🌙";
-        });
-    }
-}
-
-/* =========================================================
-   MOBILE MENU
-========================================================= */
-
-function initializeMobileMenu() {
-    if (!elements.mobileMenuButton || !elements.mobileMenu) return;
-    elements.mobileMenuButton.addEventListener("click", function () {
-        elements.mobileMenu.classList.toggle("open");
-    });
-    document.addEventListener("click", function (e) {
-        if (!elements.mobileMenu.contains(e.target) && !elements.mobileMenuButton.contains(e.target)) {
-            elements.mobileMenu.classList.remove("open");
-        }
-    });
-}
-
-/* =========================================================
    LOADING / ERROR
 ========================================================= */
-
 function showLoading() {
     elements.loadingSection.style.display = "flex";
     elements.detailsSection.classList.remove("show");
@@ -607,20 +647,23 @@ function showError(message) {
 /* =========================================================
    TOAST
 ========================================================= */
-
-function showToast(message, icon = "✓") {
+function showToast(message, icon) {
+    icon = icon || "✓";
     if (!elements.toast) return;
     elements.toastMessage.textContent = message;
     elements.toastIcon.textContent = icon;
     elements.toast.classList.add("show");
     clearTimeout(toastTimer);
-    toastTimer = setTimeout(() => elements.toast.classList.remove("show"), 2600);
+    toastTimer = setTimeout(function() {
+        elements.toast.classList.remove("show");
+    }, 2600);
 }
 
 /* =========================================================
    HELPERS
 ========================================================= */
-
 function cleanText(v) { return String(v || "").replace(/\s+/g, " ").trim(); }
 function normalizeText(v) { return cleanText(v).toLowerCase(); }
-function escapeHTML(v) { return String(v || "").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#039;"); }
+function escapeHTML(v) {
+    return String(v || "").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#039;");
+}

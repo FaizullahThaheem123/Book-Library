@@ -1,6 +1,6 @@
 /* =========================================================
    BOOK LIBRARY — BOOKS PAGE JAVASCRIPT
-   Version 1.1 (Fixed)
+   Version 2.0 (Unified Header + Original Functionality + Theme Sync)
 ========================================================= */
 
 "use strict";
@@ -13,7 +13,8 @@ const CONFIG = {
     MAX_LOAD: 100,
     FAVORITES_KEY: "bookLibraryFavorites",
     THEME_KEY: "bookLibraryTheme",
-    DETAILS_PAGE: "../book-details/book-details.html"
+    DETAILS_PAGE: "../book-details/book-details.html",
+    SEARCH_PAGE: "../search/search.html"
 };
 
 const state = {
@@ -42,6 +43,7 @@ const elements = {
     mobileMenuButton: document.getElementById("mobileMenuButton"),
     mobileMenu: document.getElementById("mobileMenu"),
     randomBookButton: document.getElementById("randomBookButton"),
+    headerSearchBtn: document.getElementById("headerSearchBtn"),
     toast: document.getElementById("toast"),
     toastMessage: document.getElementById("toastMessage"),
     toastIcon: document.getElementById("toastIcon")
@@ -50,6 +52,7 @@ const elements = {
 let toastTimer = null;
 
 document.addEventListener("DOMContentLoaded", function () {
+    initializeHeaderEvents();
     initializeTheme();
     initializeMobileMenu();
     initializeSearch();
@@ -59,8 +62,82 @@ document.addEventListener("DOMContentLoaded", function () {
     initializeLoadMore();
     initializeReset();
     initializeRandomBook();
+    setupThemeSync();
     loadInitialBooks();
 });
+
+/* =========================================================
+   THEME SYNC (Listen for changes from other pages)
+========================================================= */
+function setupThemeSync() {
+    window.addEventListener("storage", function(e) {
+        if (e.key === CONFIG.THEME_KEY) {
+            const newTheme = e.newValue;
+            if (newTheme === "dark") {
+                document.body.classList.add("dark");
+                if (elements.themeToggle) elements.themeToggle.textContent = "☀️";
+            } else {
+                document.body.classList.remove("dark");
+                if (elements.themeToggle) elements.themeToggle.textContent = "🌙";
+            }
+        }
+    });
+}
+
+/* =========================================================
+   HEADER EVENTS
+========================================================= */
+function initializeHeaderEvents() {
+    if (elements.headerSearchBtn) {
+        elements.headerSearchBtn.addEventListener("click", function() {
+            window.location.href = CONFIG.SEARCH_PAGE;
+        });
+    }
+}
+
+/* =========================================================
+   THEME
+========================================================= */
+function initializeTheme() {
+    const saved = localStorage.getItem(CONFIG.THEME_KEY);
+    if (saved === "dark") {
+        document.body.classList.add("dark");
+        elements.themeToggle.textContent = "☀️";
+    }
+    elements.themeToggle.addEventListener("click", function () {
+        document.body.classList.toggle("dark");
+        const dark = document.body.classList.contains("dark");
+        localStorage.setItem(CONFIG.THEME_KEY, dark ? "dark" : "light");
+        this.textContent = dark ? "☀️" : "🌙";
+    });
+}
+
+/* =========================================================
+   MOBILE MENU
+========================================================= */
+function initializeMobileMenu() {
+    if (!elements.mobileMenuButton || !elements.mobileMenu) return;
+    elements.mobileMenuButton.addEventListener("click", function (e) {
+        e.stopPropagation();
+        elements.mobileMenu.classList.toggle("open");
+    });
+    document.addEventListener("click", function (e) {
+        if (elements.mobileMenu.classList.contains("open") &&
+            !elements.mobileMenu.contains(e.target) &&
+            !elements.mobileMenuButton.contains(e.target)) {
+            elements.mobileMenu.classList.remove("open");
+        }
+    });
+    elements.mobileMenu.querySelectorAll("a").forEach(link => {
+        link.addEventListener("click", function () {
+            elements.mobileMenu.classList.remove("open");
+        });
+    });
+}
+
+/* =========================================================
+   REST OF ORIGINAL BOOKS.JS CODE
+========================================================= */
 
 function getQueryFromURL() {
     const params = new URLSearchParams(window.location.search);
@@ -242,13 +319,10 @@ function openBookDetails(key) {
 /* =========================================================
    FAVORITES
 ========================================================= */
-
 function getFavorites() {
     try { return JSON.parse(localStorage.getItem(CONFIG.FAVORITES_KEY)) || []; } catch { return []; }
 }
-
 function saveFavorites(fav) { localStorage.setItem(CONFIG.FAVORITES_KEY, JSON.stringify(fav)); }
-
 function isFavorite(key) {
     const norm = normalizeKey(key);
     return getFavorites().some(item => normalizeKey(item.key || item) === norm);
@@ -291,7 +365,6 @@ function saveRecentBook(key) {
 /* =========================================================
    FILTERS & SORT
 ========================================================= */
-
 function initializeFilters() {
     document.querySelectorAll(".filter-btn").forEach(btn => {
         btn.addEventListener("click", function () {
@@ -338,7 +411,6 @@ function applySort(books) {
 /* =========================================================
    LOAD MORE
 ========================================================= */
-
 function initializeLoadMore() {
     elements.loadMoreButton.addEventListener("click", function () {
         if (state.loading) return;
@@ -360,7 +432,6 @@ function updateLoadMore() {
 /* =========================================================
    QUICK SEARCH
 ========================================================= */
-
 function initializeQuickSearch() {
     document.querySelectorAll("[data-search]").forEach(btn => {
         btn.addEventListener("click", function () {
@@ -377,7 +448,6 @@ function initializeQuickSearch() {
 /* =========================================================
    RESET
 ========================================================= */
-
 function initializeReset() {
     elements.resetSearch.addEventListener("click", function () {
         elements.searchInput.value = "";
@@ -391,7 +461,6 @@ function initializeReset() {
 /* =========================================================
    RANDOM BOOK
 ========================================================= */
-
 function initializeRandomBook() {
     elements.randomBookButton.addEventListener("click", function () {
         const topics = ["classic literature","adventure","science","history","philosophy","fiction","technology","poetry","islamic books","biography"];
@@ -407,7 +476,6 @@ function initializeRandomBook() {
 /* =========================================================
    RESULTS INFO
 ========================================================= */
-
 function updateResultsInfo() {
     if (state.query) {
         elements.resultsTitle.textContent = `Results for "${state.query}"`;
@@ -420,7 +488,6 @@ function updateResultsInfo() {
 /* =========================================================
    LOADING / EMPTY
 ========================================================= */
-
 function showLoading() {
     elements.loadingState.classList.add("show");
     elements.emptyState.classList.remove("show");
@@ -434,42 +501,8 @@ function showEmpty() {
 function hideEmpty() { elements.emptyState.classList.remove("show"); }
 
 /* =========================================================
-   THEME
-========================================================= */
-
-function initializeTheme() {
-    const saved = localStorage.getItem(CONFIG.THEME_KEY);
-    if (saved === "dark") {
-        document.body.classList.add("dark");
-        elements.themeToggle.textContent = "☀️";
-    }
-    elements.themeToggle.addEventListener("click", function () {
-        document.body.classList.toggle("dark");
-        const dark = document.body.classList.contains("dark");
-        localStorage.setItem(CONFIG.THEME_KEY, dark ? "dark" : "light");
-        this.textContent = dark ? "☀️" : "🌙";
-    });
-}
-
-/* =========================================================
-   MOBILE MENU
-========================================================= */
-
-function initializeMobileMenu() {
-    elements.mobileMenuButton.addEventListener("click", function () {
-        elements.mobileMenu.classList.toggle("open");
-    });
-    document.addEventListener("click", function (e) {
-        if (!elements.mobileMenu.contains(e.target) && !elements.mobileMenuButton.contains(e.target)) {
-            elements.mobileMenu.classList.remove("open");
-        }
-    });
-}
-
-/* =========================================================
    TOAST
 ========================================================= */
-
 function showToast(message, icon = "✓") {
     elements.toastMessage.textContent = message;
     elements.toastIcon.textContent = icon;
@@ -481,6 +514,5 @@ function showToast(message, icon = "✓") {
 /* =========================================================
    HELPERS
 ========================================================= */
-
 function cleanText(text) { return String(text).replace(/\s+/g, " ").trim(); }
 function escapeHTML(v) { return String(v).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#039;"); }

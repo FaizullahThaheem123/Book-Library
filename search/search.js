@@ -1,6 +1,6 @@
 /* =========================================================
-   BOOK LIBRARY - SEARCH PAGE
-   Version 1.1 (Fixed)
+   BOOK LIBRARY — SEARCH PAGE JAVASCRIPT
+   Version 2.0 (Unified Header + Theme Sync)
 ========================================================= */
 
 "use strict";
@@ -11,6 +11,7 @@ const CONFIG = {
     DETAILS_PAGE: "../book-details/book-details.html",
     FAVORITES_KEY: "bookLibraryFavorites",
     THEME_KEY: "bookLibraryTheme",
+    SEARCH_PAGE: "../search/search.html",
     BOOKS_PER_PAGE: 20
 };
 
@@ -23,44 +24,131 @@ let currentSort = "relevance";
 let toastTimer = null;
 
 // DOM refs
-let searchForm, searchInput, quickSearchButtons;
-let booksGrid, loadingContainer, noResults, clearSearchBtn;
-let loadMoreContainer, loadMoreBtn;
-let resultsTitle, resultsInfo, sortSelect;
-let themeBtn, menuBtn, mobileMenu, toast;
+let el = {};
+
+function getElements() {
+    return {
+        searchForm: document.getElementById("searchForm"),
+        searchInput: document.getElementById("searchInput"),
+        booksGrid: document.getElementById("booksGrid"),
+        loadingContainer: document.getElementById("loadingContainer"),
+        noResults: document.getElementById("noResults"),
+        clearSearchBtn: document.getElementById("clearSearchBtn"),
+        loadMoreContainer: document.getElementById("loadMoreContainer"),
+        loadMoreBtn: document.getElementById("loadMoreBtn"),
+        resultsTitle: document.getElementById("resultsTitle"),
+        resultsInfo: document.getElementById("resultsInfo"),
+        sortSelect: document.getElementById("sortSelect"),
+        themeToggle: document.getElementById("themeToggle"),
+        mobileMenuButton: document.getElementById("mobileMenuButton"),
+        mobileMenu: document.getElementById("mobileMenu"),
+        headerSearchBtn: document.getElementById("headerSearchBtn"),
+        toast: document.getElementById("toast"),
+        toastIcon: document.getElementById("toastIcon"),
+        toastMessage: document.getElementById("toastMessage")
+    };
+}
 
 document.addEventListener("DOMContentLoaded", function () {
-    searchForm = document.getElementById("searchForm");
-    searchInput = document.getElementById("searchInput");
-    quickSearchButtons = document.querySelectorAll(".quick-searches button");
-    booksGrid = document.getElementById("booksGrid");
-    loadingContainer = document.getElementById("loadingContainer");
-    noResults = document.getElementById("noResults");
-    clearSearchBtn = document.getElementById("clearSearchBtn");
-    loadMoreContainer = document.getElementById("loadMoreContainer");
-    loadMoreBtn = document.getElementById("loadMoreBtn");
-    resultsTitle = document.getElementById("resultsTitle");
-    resultsInfo = document.getElementById("resultsInfo");
-    sortSelect = document.getElementById("sortSelect");
-    themeBtn = document.getElementById("themeBtn");
-    menuBtn = document.getElementById("menuBtn");
-    mobileMenu = document.getElementById("mobileMenu");
-    toast = document.getElementById("toast");
-
-    setupEvents();
-    loadTheme();
-    loadQueryFromURL();
+    el = getElements();
+    initializeApp();
 });
 
+function initializeApp() {
+    setupHeaderEvents();
+    setupTheme();
+    setupMobileMenu();
+    setupThemeSync();
+    setupEvents();
+    loadQueryFromURL();
+}
+
+/* =========================================================
+   THEME SYNC
+========================================================= */
+function setupThemeSync() {
+    window.addEventListener("storage", function(e) {
+        if (e.key === CONFIG.THEME_KEY) {
+            const newTheme = e.newValue;
+            if (newTheme === "dark") {
+                document.body.classList.add("dark");
+                if (el.themeToggle) el.themeToggle.textContent = "☀️";
+            } else {
+                document.body.classList.remove("dark");
+                if (el.themeToggle) el.themeToggle.textContent = "🌙";
+            }
+        }
+    });
+}
+
+/* =========================================================
+   HEADER EVENTS (Search Button - focuses on search input)
+========================================================= */
+function setupHeaderEvents() {
+    if (el.headerSearchBtn) {
+        el.headerSearchBtn.addEventListener("click", function () {
+            if (el.searchInput) {
+                el.searchInput.focus();
+                el.searchInput.scrollIntoView({ behavior: "smooth", block: "center" });
+            }
+        });
+    }
+}
+
+/* =========================================================
+   MOBILE MENU (SAME AS BOOKS PAGE)
+========================================================= */
+function setupMobileMenu() {
+    if (!el.mobileMenuButton || !el.mobileMenu) return;
+    el.mobileMenuButton.addEventListener("click", function (e) {
+        e.stopPropagation();
+        el.mobileMenu.classList.toggle("open");
+    });
+    document.addEventListener("click", function (e) {
+        if (el.mobileMenu.classList.contains("open") &&
+            !el.mobileMenu.contains(e.target) &&
+            !el.mobileMenuButton.contains(e.target)) {
+            el.mobileMenu.classList.remove("open");
+        }
+    });
+    el.mobileMenu.querySelectorAll("a").forEach(function (link) {
+        link.addEventListener("click", function () {
+            el.mobileMenu.classList.remove("open");
+        });
+    });
+}
+
+/* =========================================================
+   THEME
+========================================================= */
+function setupTheme() {
+    var savedTheme = localStorage.getItem(CONFIG.THEME_KEY);
+    if (savedTheme === "dark") {
+        document.body.classList.add("dark");
+        if (el.themeToggle) el.themeToggle.textContent = "☀️";
+    }
+    if (el.themeToggle) {
+        el.themeToggle.addEventListener("click", function () {
+            document.body.classList.toggle("dark");
+            var dark = document.body.classList.contains("dark");
+            localStorage.setItem(CONFIG.THEME_KEY, dark ? "dark" : "light");
+            this.textContent = dark ? "☀️" : "🌙";
+        });
+    }
+}
+
+/* =========================================================
+   EVENTS
+========================================================= */
 function setupEvents() {
     // Search form
-    if (searchForm) {
-        searchForm.addEventListener("submit", function (e) {
+    if (el.searchForm) {
+        el.searchForm.addEventListener("submit", function (e) {
             e.preventDefault();
-            const query = searchInput.value.trim();
+            var query = el.searchInput.value.trim();
             if (!query) {
-                showToast("Please enter a book, author or subject.");
-                searchInput.focus();
+                showToast("Please enter a book, author or subject.", "!");
+                el.searchInput.focus();
                 return;
             }
             performSearch(query);
@@ -68,18 +156,18 @@ function setupEvents() {
     }
 
     // Quick searches
-    quickSearchButtons.forEach(button => {
+    document.querySelectorAll(".quick-searches button").forEach(function (button) {
         button.addEventListener("click", function () {
-            const query = this.getAttribute("data-query");
+            var query = this.getAttribute("data-query");
             if (!query) return;
-            searchInput.value = query;
+            el.searchInput.value = query;
             performSearch(query);
         });
     });
 
     // Load more
-    if (loadMoreBtn) {
-        loadMoreBtn.addEventListener("click", function () {
+    if (el.loadMoreBtn) {
+        el.loadMoreBtn.addEventListener("click", function () {
             if (isLoading) return;
             currentPage++;
             searchBooks(currentQuery, currentPage, true);
@@ -87,55 +175,44 @@ function setupEvents() {
     }
 
     // Sort
-    if (sortSelect) {
-        sortSelect.addEventListener("change", function () {
+    if (el.sortSelect) {
+        el.sortSelect.addEventListener("change", function () {
             currentSort = this.value;
-            sortBooks();
+            renderBooks();
         });
     }
 
     // Clear search
-    if (clearSearchBtn) {
-        clearSearchBtn.addEventListener("click", clearSearch);
-    }
-
-    // Theme
-    if (themeBtn) themeBtn.addEventListener("click", toggleTheme);
-
-    // Mobile menu
-    if (menuBtn) {
-        menuBtn.addEventListener("click", function () {
-            mobileMenu.classList.toggle("open");
-        });
-    }
-    if (mobileMenu) {
-        mobileMenu.querySelectorAll("a").forEach(link => {
-            link.addEventListener("click", () => mobileMenu.classList.remove("open"));
-        });
+    if (el.clearSearchBtn) {
+        el.clearSearchBtn.addEventListener("click", clearSearch);
     }
 
     // Favorite buttons delegation
-    if (booksGrid) {
-        booksGrid.addEventListener("click", function (e) {
-            const btn = e.target.closest(".favorite-btn");
+    if (el.booksGrid) {
+        el.booksGrid.addEventListener("click", function (e) {
+            var btn = e.target.closest(".favorite-btn");
             if (!btn) return;
             e.preventDefault();
-            const key = btn.getAttribute("data-key");
+            var key = btn.getAttribute("data-key");
             if (key) toggleFavorite(key);
         });
     }
 }
 
+/* =========================================================
+   SEARCH LOGIC
+========================================================= */
 function loadQueryFromURL() {
-    const params = new URLSearchParams(window.location.search);
-    const query = params.get("q");
+    var params = new URLSearchParams(window.location.search);
+    var query = params.get("q");
     if (query && query.trim()) {
-        searchInput.value = query.trim();
+        el.searchInput.value = query.trim();
         performSearch(query.trim(), false);
     }
 }
 
-function performSearch(query, updateURL = true) {
+function performSearch(query, updateURL) {
+    updateURL = updateURL !== undefined ? updateURL : true;
     query = String(query || "").trim();
     if (!query) return;
     currentQuery = query;
@@ -143,34 +220,34 @@ function performSearch(query, updateURL = true) {
     currentSort = "relevance";
     allBooks = [];
     totalResults = 0;
-    if (sortSelect) sortSelect.value = "relevance";
-    if (searchInput) searchInput.value = query;
+    if (el.sortSelect) el.sortSelect.value = "relevance";
+    if (el.searchInput) el.searchInput.value = query;
     if (updateURL) {
-        const newURL = window.location.pathname + "?q=" + encodeURIComponent(query);
-        window.history.pushState({ query }, "", newURL);
+        var newURL = window.location.pathname + "?q=" + encodeURIComponent(query);
+        window.history.pushState({ query: query }, "", newURL);
     }
     searchBooks(query, 1, false);
 }
 
-async function searchBooks(query, page = 1, append = false) {
+async function searchBooks(query, page, append) {
+    append = append || false;
     if (isLoading) return;
     isLoading = true;
     showLoading(true);
     if (!append) {
-        hideElement(noResults);
-        hideElement(loadMoreContainer);
-        booksGrid.innerHTML = "";
-        // Show proper message
-        if (resultsInfo) resultsInfo.textContent = "Searching...";
+        hideElement(el.noResults);
+        hideElement(el.loadMoreContainer);
+        if (el.booksGrid) el.booksGrid.innerHTML = "";
+        if (el.resultsInfo) el.resultsInfo.textContent = "Searching...";
     }
 
     try {
-        const fields = ["key","title","author_name","first_publish_year","cover_i","edition_key","isbn","publisher","language","number_of_pages_median","subject"].join(",");
-        const url = `${CONFIG.API_URL}?q=${encodeURIComponent(query)}&page=${page}&limit=${CONFIG.BOOKS_PER_PAGE}&fields=${encodeURIComponent(fields)}`;
-        const response = await fetch(url);
+        var fields = ["key","title","author_name","first_publish_year","cover_i","edition_key","isbn","publisher","language","number_of_pages_median","subject"].join(",");
+        var url = CONFIG.API_URL + "?q=" + encodeURIComponent(query) + "&page=" + page + "&limit=" + CONFIG.BOOKS_PER_PAGE + "&fields=" + encodeURIComponent(fields);
+        var response = await fetch(url);
         if (!response.ok) throw new Error("Search request failed.");
-        const data = await response.json();
-        const documents = Array.isArray(data.docs) ? data.docs : [];
+        var data = await response.json();
+        var documents = Array.isArray(data.docs) ? data.docs : [];
         totalResults = Number(data.numFound) || 0;
         if (append) {
             allBooks = allBooks.concat(documents);
@@ -179,35 +256,34 @@ async function searchBooks(query, page = 1, append = false) {
         }
         updateResultsHeader(query, allBooks.length, totalResults);
         if (!allBooks.length) {
-            showElement(noResults);
-            hideElement(loadMoreContainer);
-            booksGrid.innerHTML = "";
-            // Update no results message
-            const titleEl = noResults.querySelector("h3");
-            const msgEl = noResults.querySelector("p");
+            showElement(el.noResults);
+            hideElement(el.loadMoreContainer);
+            if (el.booksGrid) el.booksGrid.innerHTML = "";
+            var titleEl = el.noResults ? el.noResults.querySelector("h3") : null;
+            var msgEl = el.noResults ? el.noResults.querySelector("p") : null;
             if (titleEl) titleEl.textContent = "No books found";
             if (msgEl) msgEl.textContent = "Try another book title, author or subject.";
             return;
         }
-        hideElement(noResults);
+        hideElement(el.noResults);
         renderBooks();
-        const loadedCount = allBooks.length;
+        var loadedCount = allBooks.length;
         if (loadedCount < totalResults && documents.length === CONFIG.BOOKS_PER_PAGE) {
-            showElement(loadMoreContainer);
+            showElement(el.loadMoreContainer);
         } else {
-            hideElement(loadMoreContainer);
+            hideElement(el.loadMoreContainer);
         }
     } catch (error) {
         console.error("Search error:", error);
         allBooks = [];
-        booksGrid.innerHTML = "";
-        hideElement(loadMoreContainer);
-        showElement(noResults);
-        const titleEl = noResults.querySelector("h3");
-        const msgEl = noResults.querySelector("p");
-        if (titleEl) titleEl.textContent = "Something went wrong";
-        if (msgEl) msgEl.textContent = "Unable to search books right now. Please check your internet connection and try again.";
-        showToast("Unable to search books.");
+        if (el.booksGrid) el.booksGrid.innerHTML = "";
+        hideElement(el.loadMoreContainer);
+        showElement(el.noResults);
+        var titleEl2 = el.noResults ? el.noResults.querySelector("h3") : null;
+        var msgEl2 = el.noResults ? el.noResults.querySelector("p") : null;
+        if (titleEl2) titleEl2.textContent = "Something went wrong";
+        if (msgEl2) msgEl2.textContent = "Unable to search books right now. Please check your internet connection and try again.";
+        showToast("Unable to search books.", "!");
     } finally {
         isLoading = false;
         showLoading(false);
@@ -215,48 +291,47 @@ async function searchBooks(query, page = 1, append = false) {
 }
 
 function updateResultsHeader(query, loaded, total) {
-    if (resultsTitle) resultsTitle.textContent = `Results for "${query}"`;
-    if (resultsInfo) {
+    if (el.resultsTitle) el.resultsTitle.textContent = 'Results for "' + query + '"';
+    if (el.resultsInfo) {
         if (total > 0) {
-            resultsInfo.textContent = `Showing ${Math.min(loaded, total).toLocaleString()} of ${total.toLocaleString()} books`;
+            el.resultsInfo.textContent = "Showing " + Math.min(loaded, total).toLocaleString() + " of " + total.toLocaleString() + " books";
         } else {
-            resultsInfo.textContent = "No books found.";
+            el.resultsInfo.textContent = "No books found.";
         }
     }
 }
 
 function renderBooks() {
-    if (!booksGrid) return;
-    let books = [...allBooks];
-    // Sort
+    if (!el.booksGrid) return;
+    var books = allBooks.slice();
     if (currentSort === "new") {
-        books.sort((a,b) => (b.first_publish_year || 0) - (a.first_publish_year || 0));
+        books.sort(function(a, b) { return (b.first_publish_year || 0) - (a.first_publish_year || 0); });
     } else if (currentSort === "old") {
-        books.sort((a,b) => (a.first_publish_year || 9999) - (b.first_publish_year || 9999));
+        books.sort(function(a, b) { return (a.first_publish_year || 9999) - (b.first_publish_year || 9999); });
     } else if (currentSort === "title") {
-        books.sort((a,b) => cleanText(a.title).localeCompare(cleanText(b.title)));
+        books.sort(function(a, b) { return cleanText(a.title).localeCompare(cleanText(b.title)); });
     }
-    booksGrid.innerHTML = books.map(book => createBookCard(book)).join("");
+    el.booksGrid.innerHTML = books.map(function(book) { return createBookCard(book); }).join("");
 }
 
 function createBookCard(book) {
-    const key = normalizeKey(book.key);
-    const title = cleanText(book.title || "Untitled Book");
-    const authors = Array.isArray(book.author_name) ? book.author_name : [];
-    const author = authors.length ? authors.slice(0,2).join(", ") : "Unknown Author";
-    const year = book.first_publish_year || "Year unknown";
-    const coverUrl = book.cover_i ? `${CONFIG.COVER_URL}/${book.cover_i}-M.jpg` : getPlaceholderCover();
-    const isFavorite = isBookFavorite(key);
-    const favClass = isFavorite ? "active" : "";
-    const favIcon = isFavorite ? "♥" : "♡";
+    var key = normalizeKey(book.key);
+    var title = cleanText(book.title || "Untitled Book");
+    var authors = Array.isArray(book.author_name) ? book.author_name : [];
+    var author = authors.length ? authors.slice(0,2).join(", ") : "Unknown Author";
+    var year = book.first_publish_year || "Year unknown";
+    var coverUrl = book.cover_i ? CONFIG.COVER_URL + "/" + book.cover_i + "-M.jpg" : getPlaceholderCover();
+    var isFavorite = isBookFavorite(key);
+    var favClass = isFavorite ? "active" : "";
+    var favIcon = isFavorite ? "♥" : "♡";
 
     return `
         <article class="book-card">
-            <div class="book-cover-wrapper">
-                <img class="book-cover" src="${escapeHTML(coverUrl)}" alt="${escapeHTML(title)} cover" loading="lazy" onerror="this.src='${getPlaceholderCover()}'">
+            <div class="book-cover">
+                <img src="${escapeHTML(coverUrl)}" alt="${escapeHTML(title)} cover" loading="lazy" onerror="this.src='${getPlaceholderCover()}'">
                 <button class="favorite-btn ${favClass}" data-key="${escapeHTML(key)}" aria-label="${isFavorite ? "Remove" : "Add"} favorites">${favIcon}</button>
             </div>
-            <div class="book-card-content">
+            <div class="book-info">
                 <h3 class="book-title" title="${escapeHTML(title)}">${escapeHTML(title)}</h3>
                 <p class="book-author" title="${escapeHTML(author)}">${escapeHTML(author)}</p>
                 <div class="book-meta">
@@ -268,14 +343,9 @@ function createBookCard(book) {
     `;
 }
 
-function sortBooks() {
-    renderBooks();
-}
-
 /* =========================================================
-   FAVORITES (normalized)
+   FAVORITES
 ========================================================= */
-
 function normalizeKey(key) {
     if (!key) return "";
     return String(key).replace(/^\/works\//, "").replace(/^works\//, "");
@@ -286,17 +356,16 @@ function getFavorites() {
 }
 
 function isBookFavorite(key) {
-    const norm = normalizeKey(key);
-    return getFavorites().some(item => normalizeKey(item.key || item) === norm);
+    var norm = normalizeKey(key);
+    return getFavorites().some(function(item) { return normalizeKey(item.key || item) === norm; });
 }
 
 function toggleFavorite(key) {
-    const norm = normalizeKey(key);
-    let favorites = getFavorites();
-    const index = favorites.findIndex(item => normalizeKey(item.key || item) === norm);
+    var norm = normalizeKey(key);
+    var favorites = getFavorites();
+    var index = favorites.findIndex(function(item) { return normalizeKey(item.key || item) === norm; });
     if (index === -1) {
-        // Try to find book in current results
-        const book = allBooks.find(b => normalizeKey(b.key) === norm);
+        var book = allBooks.find(function(b) { return normalizeKey(b.key) === norm; });
         favorites.push({
             key: norm,
             title: book?.title || "Untitled Book",
@@ -304,86 +373,73 @@ function toggleFavorite(key) {
             year: book?.first_publish_year || "",
             cover_i: book?.cover_i || null
         });
-        showToast("Added to Favorites ❤️");
+        showToast("Added to Favorites", "♥");
     } else {
         favorites.splice(index, 1);
-        showToast("Removed from Favorites.");
+        showToast("Removed from Favorites", "✓");
     }
     localStorage.setItem(CONFIG.FAVORITES_KEY, JSON.stringify(favorites));
     renderBooks();
 }
 
+/* =========================================================
+   CLEAR SEARCH
+========================================================= */
 function clearSearch() {
     currentQuery = "";
     currentPage = 1;
     totalResults = 0;
     allBooks = [];
     currentSort = "relevance";
-    if (searchInput) searchInput.value = "";
-    if (sortSelect) sortSelect.value = "relevance";
-    booksGrid.innerHTML = "";
-    if (resultsTitle) resultsTitle.textContent = "Discover Books";
-    if (resultsInfo) resultsInfo.textContent = "Enter a search above to find books.";
-    hideElement(noResults);
-    hideElement(loadMoreContainer);
-    const cleanURL = window.location.pathname;
+    if (el.searchInput) el.searchInput.value = "";
+    if (el.sortSelect) el.sortSelect.value = "relevance";
+    if (el.booksGrid) el.booksGrid.innerHTML = "";
+    if (el.resultsTitle) el.resultsTitle.textContent = "Discover Books";
+    if (el.resultsInfo) el.resultsInfo.textContent = "Enter a search above to find books.";
+    hideElement(el.noResults);
+    hideElement(el.loadMoreContainer);
+    var cleanURL = window.location.pathname;
     window.history.replaceState({}, "", cleanURL);
-    searchInput.focus();
-}
-
-/* =========================================================
-   THEME
-========================================================= */
-
-function loadTheme() {
-    const savedTheme = localStorage.getItem(CONFIG.THEME_KEY);
-    if (savedTheme === "dark") document.body.classList.add("dark");
-    updateThemeButton();
-}
-
-function toggleTheme() {
-    document.body.classList.toggle("dark");
-    const isDark = document.body.classList.contains("dark");
-    localStorage.setItem(CONFIG.THEME_KEY, isDark ? "dark" : "light");
-    updateThemeButton();
-}
-
-function updateThemeButton() {
-    if (!themeBtn) return;
-    const isDark = document.body.classList.contains("dark");
-    themeBtn.textContent = isDark ? "☀️" : "🌙";
-    themeBtn.setAttribute("aria-label", isDark ? "Switch to light mode" : "Switch to dark mode");
+    if (el.searchInput) el.searchInput.focus();
 }
 
 /* =========================================================
    UI HELPERS
 ========================================================= */
-
 function showLoading(show) {
-    if (!loadingContainer) return;
-    loadingContainer.style.display = show ? "flex" : "none";
+    if (!el.loadingContainer) return;
+    el.loadingContainer.style.display = show ? "flex" : "none";
 }
 
-function showElement(el) { if (el) el.style.display = ""; }
-function hideElement(el) { if (el) el.style.display = "none"; }
+function showElement(el2) { if (el2) el2.style.display = ""; }
+function hideElement(el2) { if (el2) el2.style.display = "none"; }
 
 function getPlaceholderCover() {
-    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="300" height="450" viewBox="0 0 300 450">
-        <rect width="300" height="450" fill="#e9ecef" />
-        <text x="150" y="205" text-anchor="middle" font-family="Arial" font-size="54">📚</text>
-        <text x="150" y="270" text-anchor="middle" font-family="Arial" font-size="18" fill="#777">No Cover</text>
-    </svg>`;
+    var svg = '<svg xmlns="http://www.w3.org/2000/svg" width="300" height="450" viewBox="0 0 300 450">' +
+        '<rect width="300" height="450" fill="#e9ecef" />' +
+        '<text x="150" y="205" text-anchor="middle" font-family="Arial" font-size="54">📚</text>' +
+        '<text x="150" y="270" text-anchor="middle" font-family="Arial" font-size="18" fill="#777">No Cover</text>' +
+        '</svg>';
     return "data:image/svg+xml;charset=UTF-8," + encodeURIComponent(svg);
 }
 
 function cleanText(v) { return String(v || "").replace(/\s+/g, " ").trim(); }
 
-function escapeHTML(v) { return String(v || "").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#039;"); }
+function escapeHTML(v) {
+    return String(v || "").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#039;");
+}
 
-function showToast(message) {
-    if (!toast) return;
-    toast.textContent = message;
-    toast.classList.add("show");
+/* =========================================================
+   TOAST
+========================================================= */
+function showToast(message, icon) {
+    icon = icon || "✓";
+    if (!el.toast) return;
+    el.toastMessage.textContent = message;
+    if (el.toastIcon) el.toastIcon.textContent = icon;
+    el.toast.classList.add("show");
     clearTimeout(toastTimer);
-    toastTimer = setTimeout(() => toast.classList.remove("show"), 2500);
+    toastTimer = setTimeout(function() {
+        el.toast.classList.remove("show");
+    }, 2500);
 }

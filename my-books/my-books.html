@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>My Books — Book Library</title>
+    <link rel="stylesheet" href="my-books.css" />
+</head>
+<body>
+
+    <!-- ===== HEADER (UNIFIED - BOOKS PAGE STYLE) ===== -->
+    <header class="site-header">
+        <div class="header-container">
+            <a href="../index/index.html" class="logo">
+                <span class="logo-icon">📚</span>
+                <span class="logo-text"><strong>Book</strong><span>Library</span></span>
+            </a>
+            <nav class="desktop-nav">
+                <a href="../index/index.html">Home</a>
+                <a href="../books/books.html">Books</a>
+                <a href="../categories/categories.html">Categories</a>
+                <a href="../favorites/favorites.html">Favorites</a>
+                <a href="../my-books/my-books.html" class="active">My Books</a>
+                <a href="../settings/settings.html">Settings</a>
+            </nav>
+            <div class="header-actions">
+                <button class="icon-button" id="headerSearchBtn" aria-label="Search">🔍</button>
+                <button class="icon-button" id="themeToggle" aria-label="Toggle theme">🌙</button>
+                <button class="icon-button" id="mobileMenuButton" aria-label="Open menu">☰</button>
+            </div>
+        </div>
+        <div class="mobile-menu" id="mobileMenu">
+            <a href="../index/index.html">🏠 Home</a>
+            <a href="../books/books.html">📚 Books</a>
+            <a href="../categories/categories.html">🗂️ Categories</a>
+            <a href="../favorites/favorites.html">❤️ Favorites</a>
+            <a href="../my-books/my-books.html" class="active">📖 My Books</a>
+            <a href="../settings/settings.html">⚙️ Settings</a>
+        </div>
+    </header>
+
+    <!-- ===== MAIN CONTENT ===== -->
+    <main class="main-content">
+
+        <!-- PAGE HERO -->
+        <section class="page-hero">
+            <div class="hero-content">
+                <div class="hero-icon">📖</div>
+                <div>
+                    <span class="eyebrow">YOUR PERSONAL LIBRARY</span>
+                    <h1>My Books</h1>
+                    <p>Keep track of the books you want to read, are currently reading, or have finished.</p>
+                </div>
+            </div>
+            <a href="../books/books.html" class="browse-btn"><span>＋</span> Add Books</a>
+        </section>
+
+        <!-- STATISTICS -->
+        <section class="stats-grid">
+            <div class="stat-card"><div class="stat-icon">📚</div><div><span>Total Books</span><strong id="totalBooks">0</strong></div></div>
+            <div class="stat-card"><div class="stat-icon">🔖</div><div><span>Want to Read</span><strong id="wantBooks">0</strong></div></div>
+            <div class="stat-card"><div class="stat-icon">📖</div><div><span>Reading</span><strong id="readingBooks">0</strong></div></div>
+            <div class="stat-card"><div class="stat-icon">✓</div><div><span>Finished</span><strong id="finishedBooks">0</strong></div></div>
+        </section>
+
+        <!-- FILTERS -->
+        <section class="library-toolbar">
+            <div class="tabs" id="statusTabs">
+                <button class="tab active" data-status="all" type="button">All</button>
+                <button class="tab" data-status="want" type="button">🔖 Want to Read</button>
+                <button class="tab" data-status="reading" type="button">📖 Reading</button>
+                <button class="tab" data-status="finished" type="button">✓ Finished</button>
+            </div>
+            <div class="sort-box">
+                <label for="sortBooks">Sort:</label>
+                <select id="sortBooks">
+                    <option value="recent">Recently Added</option>
+                    <option value="title">Title A-Z</option>
+                    <option value="author">Author A-Z</option>
+                    <option value="year">Publication Year</option>
+                </select>
+            </div>
+        </section>
+
+        <!-- BOOK GRID -->
+        <section class="books-section">
+            <div class="books-grid" id="booksGrid"></div>
+            <div class="empty-state" id="emptyState" hidden>
+                <div class="empty-icon">📚</div>
+                <h2 id="emptyTitle">Your library is empty</h2>
+                <p id="emptyText">Start adding books to build your personal reading library.</p>
+                <a href="../books/books.html" class="empty-btn">Browse Books</a>
+            </div>
+            <div class="loading-state" id="loadingState" hidden>
+                <div class="spinner"></div>
+                <p>Loading your books...</p>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- ===== FOOTER ===== -->
+    <footer class="site-footer">
+        <div class="container">
+            <div class="footer-grid">
+                <div class="footer-brand">
+                    <a href="../index/index.html" class="logo">
+                        <span class="logo-icon">📚</span>
+                        <span class="logo-text"><strong>Book</strong><span>Library</span></span>
+                    </a>
+                    <p>Discover, explore and organize books from around the world.</p>
+                </div>
+                <div class="footer-column">
+                    <h4>Library</h4>
+                    <a href="../books/books.html">All Books</a>
+                    <a href="../categories/categories.html">Categories</a>
+                    <a href="../favorites/favorites.html">Favorites</a>
+                </div>
+                <div class="footer-column">
+                    <h4>Explore</h4>
+                    <a href="../index/index.html">Home</a>
+                    <a href="../my-books/my-books.html">My Books</a>
+                    <a href="../settings/settings.html">Settings</a>
+                </div>
+            </div>
+            <div class="footer-bottom">
+                <span>© 2026 Book Library</span>
+                <span>Powered by Open Library</span>
+            </div>
+        </div>
+    </footer>
+
+    <!-- ===== MOBILE BOTTOM NAV ===== -->
+    <nav class="mobile-bottom-nav">
+        <a href="../index/index.html"><span>🏠</span><small>Home</small></a>
+        <a href="../books/books.html"><span>📚</span><small>Books</small></a>
+        <a href="../categories/categories.html"><span>🗂️</span><small>Categories</small></a>
+        <a href="../favorites/favorites.html"><span>❤️</span><small>Favorites</small></a>
+        <a href="../my-books/my-books.html" class="active"><span>📖</span><small>My Books</small></a>
+    </nav>
+
+    <!-- ===== MODAL ===== -->
+    <div class="modal-overlay" id="bookModal" hidden>
+        <div class="modal">
+            <button class="modal-close" id="modalClose" type="button">×</button>
+            <div class="modal-cover"><img id="modalCover" src="" alt="Book cover" /></div>
+            <div class="modal-info">
+                <span class="modal-label">BOOK STATUS</span>
+                <h2 id="modalTitle">Book Title</h2>
+                <p id="modalAuthor">Author</p>
+                <label for="bookStatus">Reading Status</label>
+                <select id="bookStatus">
+                    <option value="want">🔖 Want to Read</option>
+                    <option value="reading">📖 Reading</option>
+                    <option value="finished">✓ Finished</option>
+                </select>
+                <label for="bookProgress">Reading Progress</label>
+                <div class="progress-input">
+                    <input type="range" id="bookProgress" min="0" max="100" value="0" />
+                    <strong id="progressValue">0%</strong>
+                </div>
+                <label for="bookNotes">Personal Note</label>
+                <textarea id="bookNotes" rows="4" placeholder="Write a note about this book..."></textarea>
+                <div class="modal-actions">
+                    <button class="save-btn" id="saveBookBtn" type="button">Save Changes</button>
+                    <button class="remove-btn" id="removeBookBtn" type="button">Remove Book</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===== TOAST ===== -->
+    <div class="toast" id="toast"><span id="toastIcon">✓</span><span id="toastMessage">Done</span></div>
+
+    <script src="my-books.js"></script>
+</body>
+</html>
