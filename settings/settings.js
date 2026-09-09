@@ -1,14 +1,14 @@
 /* =========================================================
    BOOK LIBRARY — SETTINGS JAVASCRIPT
-   Version 3.0 (Unified Dark Class + Theme Sync)
+   Version 3.2 (Fixed Theme Sync with bookLibraryTheme)
 ========================================================= */
 
 "use strict";
 
 const CONFIG = {
     SEARCH_PAGE: "../search/search.html",
-    THEME_KEY: "bookLibraryTheme",
-    SETTINGS_KEY: "bookLibrarySettings"
+    THEME_KEY: "bookLibraryTheme",        // used by all pages
+    SETTINGS_KEY: "bookLibrarySettings"   // used only by settings page
 };
 
 const DEFAULT_SETTINGS = {
@@ -24,21 +24,20 @@ const DEFAULT_SETTINGS = {
    DOM READY
 ========================================================= */
 document.addEventListener("DOMContentLoaded", () => {
-    // Unified header events
     setupHeaderEvents();
     setupMobileMenu();
-    setupThemeToggle();
 
-    // Existing settings logic
-    loadSettings();
+    loadSettings();          // applies theme from localStorage
+    setupThemeToggle();      // now reads correct body class
+
     setupTabs();
-    setupTheme();
+    setupTheme();            // dropdown select
     setupFontSize();
     setupAnimations();
     setupReadingSettings();
     setupLibraryCounts();
     setupDataActions();
-    setupThemeSync();  // <-- Listen for changes from other pages
+    setupThemeSync();        // listen for changes from other pages
 });
 
 /* =========================================================
@@ -50,12 +49,21 @@ function setupThemeSync() {
             const newTheme = e.newValue;
             if (newTheme === "dark") {
                 document.body.classList.add("dark");
-                const toggle = document.getElementById("themeToggle");
-                if (toggle) toggle.textContent = "☀️";
+                // Also update settings object so dropdown shows correct value
+                const settings = getSettings();
+                settings.theme = "dark";
+                saveSettings(settings);
+                const themeSelect = document.getElementById("themeSelect");
+                if (themeSelect) themeSelect.value = "dark";
+                updateThemeIcon();
             } else {
                 document.body.classList.remove("dark");
-                const toggle = document.getElementById("themeToggle");
-                if (toggle) toggle.textContent = "🌙";
+                const settings = getSettings();
+                settings.theme = "light";
+                saveSettings(settings);
+                const themeSelect = document.getElementById("themeSelect");
+                if (themeSelect) themeSelect.value = "light";
+                updateThemeIcon();
             }
         }
     });
@@ -136,14 +144,25 @@ function updateThemeIcon() {
 }
 
 /* =========================================================
-   EXISTING SETTINGS LOGIC
+   EXISTING SETTINGS LOGIC (Modified to check bookLibraryTheme)
 ========================================================= */
 
 function getSettings() {
     try {
-        const saved = localStorage.getItem(CONFIG.SETTINGS_KEY);
-        if (!saved) return { ...DEFAULT_SETTINGS };
-        return { ...DEFAULT_SETTINGS, ...JSON.parse(saved) };
+        // First check if bookLibraryTheme exists (set by other pages)
+        const themeKey = localStorage.getItem(CONFIG.THEME_KEY);
+        let saved = localStorage.getItem(CONFIG.SETTINGS_KEY);
+        let settings = saved ? { ...DEFAULT_SETTINGS, ...JSON.parse(saved) } : { ...DEFAULT_SETTINGS };
+
+        // If bookLibraryTheme is set, override settings.theme
+        if (themeKey === "dark") {
+            settings.theme = "dark";
+        } else if (themeKey === "light") {
+            settings.theme = "light";
+        }
+        // If bookLibraryTheme is not set, keep settings.theme as is (system/light/dark)
+
+        return settings;
     } catch (error) {
         console.error("Settings loading error:", error);
         return { ...DEFAULT_SETTINGS };
@@ -153,6 +172,16 @@ function getSettings() {
 function saveSettings(settings) {
     try {
         localStorage.setItem(CONFIG.SETTINGS_KEY, JSON.stringify(settings));
+        // Also sync bookLibraryTheme for other pages
+        if (settings.theme === "dark") {
+            localStorage.setItem(CONFIG.THEME_KEY, "dark");
+        } else if (settings.theme === "light") {
+            localStorage.setItem(CONFIG.THEME_KEY, "light");
+        } else if (settings.theme === "system") {
+            // If system, set based on system preference
+            const darkMode = window.matchMedia("(prefers-color-scheme: dark)").matches;
+            localStorage.setItem(CONFIG.THEME_KEY, darkMode ? "dark" : "light");
+        }
     } catch (error) {
         console.error("Settings saving error:", error);
     }
@@ -176,6 +205,8 @@ function loadSettings() {
 
     const rememberPosition = document.getElementById("rememberPosition");
     if (rememberPosition) rememberPosition.checked = settings.rememberPosition;
+
+    updateThemeIcon();
 }
 
 function setupTabs() {
@@ -224,23 +255,30 @@ function setupTheme() {
 function applyTheme(theme) {
     const body = document.body;
     body.classList.remove("dark");
-    if (theme === "dark") {
-        body.classList.add("dark");
-        localStorage.setItem(CONFIG.THEME_KEY, "dark");
-        return;
-    }
+
+    let finalTheme = theme;
     if (theme === "system") {
         const darkMode = window.matchMedia("(prefers-color-scheme: dark)").matches;
         if (darkMode) {
             body.classList.add("dark");
-            localStorage.setItem(CONFIG.THEME_KEY, "dark");
+            finalTheme = "dark";
         } else {
-            localStorage.setItem(CONFIG.THEME_KEY, "light");
+            finalTheme = "light";
         }
-        return;
+    } else if (theme === "dark") {
+        body.classList.add("dark");
+        finalTheme = "dark";
+    } else {
+        finalTheme = "light";
     }
-    // light theme
-    localStorage.setItem(CONFIG.THEME_KEY, "light");
+
+    // Always sync bookLibraryTheme
+    localStorage.setItem(CONFIG.THEME_KEY, finalTheme === "dark" ? "dark" : "light");
+
+    // Also update the settings object so dropdown reflects correctly
+    const settings = getSettings();
+    settings.theme = theme; // keep original user preference (system/light/dark)
+    saveSettings(settings);
 }
 
 function setupFontSize() {
@@ -389,7 +427,8 @@ function setupDataActions() {
     if (resetSettings) {
         resetSettings.addEventListener("click", () => {
             if (!confirm("Reset all Book Library settings to default?")) return;
-            localStorage.setItem(CONFIG.SETTINGS_KEY, JSON.stringify(DEFAULT_SETTINGS));
+            localStorage.removeItem(CONFIG.SETTINGS_KEY);
+            localStorage.removeItem(CONFIG.THEME_KEY);
             loadSettings();
             updateThemeIcon();
             showToast("✓", "Settings restored to default");
