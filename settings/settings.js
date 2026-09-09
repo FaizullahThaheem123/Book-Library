@@ -1,6 +1,6 @@
 /* =========================================================
    BOOK LIBRARY — SETTINGS JAVASCRIPT
-   Version 2.0 (Unified Header + Search Button + Theme Sync)
+   Version 3.0 (Unified Dark Class + Theme Sync)
 ========================================================= */
 
 "use strict";
@@ -38,23 +38,21 @@ document.addEventListener("DOMContentLoaded", () => {
     setupReadingSettings();
     setupLibraryCounts();
     setupDataActions();
-    setupThemeSync();
+    setupThemeSync();  // <-- Listen for changes from other pages
 });
 
 /* =========================================================
-   THEME SYNC
+   THEME SYNC (Listen for changes from other tabs/pages)
 ========================================================= */
 function setupThemeSync() {
     window.addEventListener("storage", function(e) {
         if (e.key === CONFIG.THEME_KEY) {
             const newTheme = e.newValue;
             if (newTheme === "dark") {
-                document.body.classList.add("dark-theme");
                 document.body.classList.add("dark");
                 const toggle = document.getElementById("themeToggle");
                 if (toggle) toggle.textContent = "☀️";
             } else {
-                document.body.classList.remove("dark-theme");
                 document.body.classList.remove("dark");
                 const toggle = document.getElementById("themeToggle");
                 if (toggle) toggle.textContent = "🌙";
@@ -110,7 +108,6 @@ function setupThemeToggle() {
     const button = document.getElementById("themeToggle");
     if (!button) return;
 
-    // Update icon based on current theme
     updateThemeIcon();
 
     button.addEventListener("click", function () {
@@ -124,7 +121,6 @@ function setupThemeToggle() {
         settings.theme = newTheme;
         saveSettings(settings);
         applyTheme(newTheme);
-        // Update the select dropdown if exists
         const themeSelect = document.getElementById("themeSelect");
         if (themeSelect) themeSelect.value = newTheme;
         updateThemeIcon();
@@ -135,7 +131,7 @@ function setupThemeToggle() {
 function updateThemeIcon() {
     const button = document.getElementById("themeToggle");
     if (!button) return;
-    const dark = document.body.classList.contains("dark-theme") || document.body.classList.contains("dark");
+    const dark = document.body.classList.contains("dark");
     button.textContent = dark ? "☀️" : "🌙";
 }
 
@@ -194,7 +190,6 @@ function setupTabs() {
             tab.classList.add("active");
             const target = document.getElementById(section);
             if (target) target.classList.add("active");
-            // close mobile menu
             const mobileMenu = document.getElementById("mobileMenu");
             if (mobileMenu) mobileMenu.classList.remove("open");
         });
@@ -210,7 +205,7 @@ function setupTheme() {
         settings.theme = theme;
         saveSettings(settings);
         applyTheme(theme);
-        updateThemeIcon(); // sync header button
+        updateThemeIcon();
         showToast("✓", "Theme updated");
     });
 
@@ -228,23 +223,24 @@ function setupTheme() {
 
 function applyTheme(theme) {
     const body = document.body;
-    body.classList.remove("dark-theme");
     body.classList.remove("dark");
     if (theme === "dark") {
-        body.classList.add("dark-theme");
         body.classList.add("dark");
+        localStorage.setItem(CONFIG.THEME_KEY, "dark");
         return;
     }
     if (theme === "system") {
         const darkMode = window.matchMedia("(prefers-color-scheme: dark)").matches;
         if (darkMode) {
-            body.classList.add("dark-theme");
             body.classList.add("dark");
+            localStorage.setItem(CONFIG.THEME_KEY, "dark");
+        } else {
+            localStorage.setItem(CONFIG.THEME_KEY, "light");
         }
+        return;
     }
-    // Also sync with localStorage for consistency across pages
-    const isDark = body.classList.contains("dark-theme") || body.classList.contains("dark");
-    localStorage.setItem(CONFIG.THEME_KEY, isDark ? "dark" : "light");
+    // light theme
+    localStorage.setItem(CONFIG.THEME_KEY, "light");
 }
 
 function setupFontSize() {

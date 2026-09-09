@@ -1,6 +1,6 @@
 /* =========================================================
    BOOK LIBRARY — SETTINGS CSS
-   Version 2.0 (Unified Header)
+   Version 3.0 (Unified Dark Class)
 ========================================================= */
 
 * {
@@ -32,6 +32,19 @@
 
     --font-scale: 1;
     --container: 1180px;
+}
+
+/* ===== DARK THEME (same as other pages) ===== */
+body.dark {
+    --bg: #10121a;
+    --card: #181b25;
+    --header: #151821;
+    --text: #f2f3f7;
+    --text-light: #9da4b5;
+    --border: #292e3c;
+    --primary-light: rgba(91, 75, 219, 0.18);
+    --danger-bg: rgba(220, 53, 69, 0.1);
+    --shadow: 0 8px 30px rgba(0, 0, 0, 0.25);
 }
 
 html {
@@ -196,29 +209,7 @@ button {
     }
 }
 
-/* ===== REST OF ORIGINAL SETTINGS CSS ===== */
-/* (Keep all your existing styles for settings-hero, settings-layout, etc.) */
-/* But we need to adjust some class names to match books page style if needed */
-
-/* Actually the original settings.css already has .site-header, .header-container, .logo, .desktop-nav, .header-actions, .icon-button, .mobile-menu, etc. */
-/* We only need to ensure the .mobile-menu.open is defined and .icon-button matches. */
-/* The original had .icon-button with width:40px, we change to 42px to match. Also .mobile-menu had display:none; .mobile-menu.open should display:block. */
-
-/* Override or add these styles to match books page: */
-.icon-button {
-    width: 42px;
-    height: 42px;
-}
-.mobile-menu.open {
-    display: block;
-}
-
-/* The rest of the settings styles (settings-hero, settings-section, etc.) remain unchanged. */
-/* We keep all original from user's settings.css below: */
-
-/* =========================================================
-   ORIGINAL SETTINGS STYLES (unchanged)
-========================================================= */
+/* ===== SETTINGS HERO ===== */
 .settings-hero {
     padding: 55px 0 45px;
     background: radial-gradient(circle at top right, rgba(91,75,219,0.13), transparent 35%), var(--bg);
@@ -257,6 +248,7 @@ button {
     font-size: 15px;
 }
 
+/* ===== SETTINGS SECTION ===== */
 .settings-section {
     padding: 45px 0 80px;
 }
@@ -333,14 +325,8 @@ button {
     display: block;
 }
 @keyframes panelIn {
-    from {
-        opacity: 0;
-        transform: translateY(8px);
-    }
-    to {
-        opacity: 1;
-        transform: translateY(0);
-    }
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
 }
 
 .panel-heading {
@@ -730,29 +716,6 @@ button {
     font-size: 17px;
 }
 
-/* ===== DARK THEME ===== */
-body.dark-theme {
-    --bg: #10121a;
-    --card: #181b25;
-    --header: #151821;
-    --text: #f2f3f7;
-    --text-light: #9da4b5;
-    --border: #292e3c;
-    --primary-light: rgba(91, 75, 219, 0.18);
-    --danger-bg: rgba(220, 53, 69, 0.1);
-    --shadow: 0 8px 30px rgba(0, 0, 0, 0.25);
-}
-body.dark-theme .settings-hero {
-    background: radial-gradient(circle at top right, rgba(91,75,219,0.18), transparent 35%), var(--bg);
-}
-body.dark-theme .icon-button:hover {
-    background: var(--primary-light);
-}
-body.dark-theme .setting-card select,
-body.dark-theme .font-controls button {
-    background: #11141c;
-}
-
 /* ===== MOBILE BOTTOM NAV ===== */
 .mobile-bottom-nav {
     display: none;
@@ -760,15 +723,8 @@ body.dark-theme .font-controls button {
 
 /* ===== RESPONSIVE ===== */
 @media (max-width: 950px) {
-    .desktop-nav {
-        display: none;
-    }
-    .mobile-menu {
-        /* already handled */
-    }
-    .settings-layout {
-        grid-template-columns: 1fr;
-    }
+    .desktop-nav { display: none; }
+    .settings-layout { grid-template-columns: 1fr; }
     .settings-sidebar {
         position: static;
         display: grid;
@@ -782,141 +738,56 @@ body.dark-theme .font-controls button {
         gap: 6px;
         padding: 10px 5px;
     }
-    .settings-tab > span {
-        width: 35px;
-        height: 35px;
-    }
-    .settings-tab small {
-        display: none;
-    }
-    .footer-grid {
-        grid-template-columns: 2fr 1fr 1fr;
-    }
+    .settings-tab > span { width: 35px; height: 35px; }
+    .settings-tab small { display: none; }
+    .footer-grid { grid-template-columns: 2fr 1fr 1fr; }
 }
 
 @media (max-width: 650px) {
-    .container,
-    .header-container {
-        width: min(100% - 24px, 1180px);
-    }
-    .header-container {
-        min-height: 62px;
-    }
-    .logo-icon {
-        font-size: 24px;
-    }
-    .logo-text {
-        font-size: 18px;
-    }
-    .icon-button {
-        width: 37px;
-        height: 37px;
-    }
-    .mobile-menu {
-        top: 62px;
-    }
-    .settings-hero {
-        padding: 35px 0;
-    }
-    .settings-hero .container {
-        align-items: flex-start;
-    }
-    .hero-icon {
-        width: 55px;
-        height: 55px;
-        border-radius: 15px;
-        font-size: 27px;
-    }
-    .settings-hero h1 {
-        font-size: 30px;
-    }
-    .settings-hero p {
-        font-size: 13px;
-    }
-    .settings-section {
-        padding: 25px 0 90px;
-    }
+    .container, .header-container { width: min(100% - 24px, 1180px); }
+    .header-container { min-height: 62px; }
+    .logo-icon { font-size: 24px; }
+    .logo-text { font-size: 18px; }
+    .icon-button { width: 37px; height: 37px; }
+    .mobile-menu { top: 62px; }
+    .settings-hero { padding: 35px 0; }
+    .settings-hero .container { align-items: flex-start; }
+    .hero-icon { width: 55px; height: 55px; border-radius: 15px; font-size: 27px; }
+    .settings-hero h1 { font-size: 30px; }
+    .settings-hero p { font-size: 13px; }
+    .settings-section { padding: 25px 0 90px; }
     .settings-sidebar {
         grid-template-columns: repeat(5, 1fr);
         padding: 6px;
         border-radius: 13px;
     }
-    .settings-tab {
-        padding: 8px 2px;
-    }
-    .settings-tab > span {
-        width: 32px;
-        height: 32px;
-        font-size: 16px;
-    }
-    .settings-tab strong {
-        font-size: 10px;
-    }
-    .panel-heading {
-        margin-bottom: 15px;
-    }
-    .panel-heading h2 {
-        font-size: 21px;
-    }
-    .heading-icon {
-        width: 45px;
-        height: 45px;
-        font-size: 20px;
-    }
+    .settings-tab { padding: 8px 2px; }
+    .settings-tab > span { width: 32px; height: 32px; font-size: 16px; }
+    .settings-tab strong { font-size: 10px; }
+    .panel-heading { margin-bottom: 15px; }
+    .panel-heading h2 { font-size: 21px; }
+    .heading-icon { width: 45px; height: 45px; font-size: 20px; }
     .setting-card {
         align-items: flex-start;
         flex-direction: column;
         gap: 15px;
         padding: 16px;
     }
-    .setting-info {
-        width: 100%;
-    }
-    .setting-card select {
-        width: 100%;
-    }
-    .font-controls {
-        align-self: flex-end;
-    }
-    .switch {
-        align-self: flex-end;
-    }
-    .data-count {
-        align-self: flex-end;
-    }
-    .action-card {
-        gap: 15px;
-    }
-    .action-card .danger-outline {
-        align-self: flex-end;
-    }
-    .reset-card {
-        flex-direction: column;
-        align-items: flex-start;
-    }
-    .danger-button {
-        width: 100%;
-    }
-    .info-list > div {
-        grid-template-columns: 30px 1fr;
-    }
-    .info-list > div > span:last-child {
-        grid-column: 2;
-    }
-    .footer-grid {
-        grid-template-columns: 1fr 1fr;
-        gap: 30px;
-    }
-    .footer-brand {
-        grid-column: 1 / -1;
-    }
-    .footer-bottom {
-        flex-direction: column;
-        gap: 5px;
-    }
-    .site-footer {
-        padding-bottom: 90px;
-    }
+    .setting-info { width: 100%; }
+    .setting-card select { width: 100%; }
+    .font-controls { align-self: flex-end; }
+    .switch { align-self: flex-end; }
+    .data-count { align-self: flex-end; }
+    .action-card { gap: 15px; }
+    .action-card .danger-outline { align-self: flex-end; }
+    .reset-card { flex-direction: column; align-items: flex-start; }
+    .danger-button { width: 100%; }
+    .info-list > div { grid-template-columns: 30px 1fr; }
+    .info-list > div > span:last-child { grid-column: 2; }
+    .footer-grid { grid-template-columns: 1fr 1fr; gap: 30px; }
+    .footer-brand { grid-column: 1 / -1; }
+    .footer-bottom { flex-direction: column; gap: 5px; }
+    .site-footer { padding-bottom: 90px; }
     .mobile-bottom-nav {
         position: fixed;
         left: 0;
@@ -941,41 +812,17 @@ body.dark-theme .font-controls button {
         color: var(--text-light);
         font-size: 17px;
     }
-    .mobile-bottom-nav small {
-        font-size: 9px;
-        font-weight: 600;
-    }
-    .mobile-bottom-nav a.active {
-        color: var(--primary);
-    }
-    .mobile-bottom-nav a.active span {
-        transform: translateY(-1px);
-    }
+    .mobile-bottom-nav small { font-size: 9px; font-weight: 600; }
+    .mobile-bottom-nav a.active { color: var(--primary); }
+    .mobile-bottom-nav a.active span { transform: translateY(-1px); }
 }
 
 @media (max-width: 390px) {
-    .settings-tab strong {
-        font-size: 9px;
-    }
-    .settings-tab > span {
-        width: 29px;
-        height: 29px;
-        font-size: 14px;
-    }
-    .setting-info {
-        gap: 10px;
-    }
-    .setting-icon {
-        width: 40px;
-        height: 40px;
-    }
-    .setting-info h3 {
-        font-size: 14px;
-    }
-    .setting-info p {
-        font-size: 11px;
-    }
-    .mobile-bottom-nav a {
-        min-width: 48px;
-    }
+    .settings-tab strong { font-size: 9px; }
+    .settings-tab > span { width: 29px; height: 29px; font-size: 14px; }
+    .setting-info { gap: 10px; }
+    .setting-icon { width: 40px; height: 40px; }
+    .setting-info h3 { font-size: 14px; }
+    .setting-info p { font-size: 11px; }
+    .mobile-bottom-nav a { min-width: 48px; }
 }
