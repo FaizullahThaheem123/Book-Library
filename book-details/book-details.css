@@ -1,6 +1,6 @@
 /* =========================================================
    BOOK LIBRARY — BOOK DETAILS CSS
-   Version 8.0 (Inline Reader — Mobile Fullscreen)
+   Version 10.0 (Fixed Reader Fullscreen + Modal)
 ========================================================= */
 
 * {
@@ -13,27 +13,19 @@
     --bg: #f6f7fb;
     --surface: #ffffff;
     --surface-2: #f0f2f7;
-
     --text: #182033;
     --text-soft: #697187;
     --text-light: #969daf;
-
     --primary: #5b5ce2;
     --primary-dark: #4748c7;
-
     --border: #e4e7ef;
-
     --danger: #e84c73;
-
     --shadow-sm: 0 5px 18px rgba(24, 32, 51, 0.06);
     --shadow-md: 0 15px 45px rgba(24, 32, 51, 0.11);
-
     --radius-sm: 10px;
     --radius-md: 16px;
     --radius-lg: 25px;
-
     --container: 1180px;
-
     --transition: 0.25s ease;
 }
 
@@ -41,13 +33,10 @@ body.dark {
     --bg: #10121a;
     --surface: #181b25;
     --surface-2: #222632;
-
     --text: #f5f6fb;
     --text-soft: #aeb4c5;
     --text-light: #777f94;
-
     --border: #2c3140;
-
     --shadow-sm: 0 5px 18px rgba(0, 0, 0, 0.2);
     --shadow-md: 0 15px 45px rgba(0, 0, 0, 0.35);
 }
@@ -179,7 +168,7 @@ a { text-decoration: none; color: inherit; }
     .desktop-nav { display: none; }
 }
 
-/* ===== TOP NAVIGATION ===== */
+/* ===== TOP NAV ===== */
 .top-navigation { padding: 25px 0 10px; }
 .back-button {
     border: none;
@@ -491,7 +480,7 @@ a { text-decoration: none; color: inherit; }
 }
 
 /* =========================================================
-   INLINE READER (Pahle Jaisa + Mobile Fullscreen)
+   INLINE READER (Fixed — True Fullscreen on Mobile)
 ========================================================= */
 .reader-container {
     display: none;
@@ -505,7 +494,7 @@ a { text-decoration: none; color: inherit; }
 .reader-container.show { display: block; }
 
 .reader-toolbar {
-    height: 48px;
+    height: 50px;
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -535,8 +524,8 @@ a { text-decoration: none; color: inherit; }
     flex-shrink: 0;
 }
 .reader-toolbar-btn {
-    width: 34px;
-    height: 34px;
+    width: 36px;
+    height: 36px;
     border: 1px solid #2e3240;
     border-radius: 8px;
     background: #1e2129;
@@ -560,8 +549,8 @@ a { text-decoration: none; color: inherit; }
 .reader-frame-wrap {
     position: relative;
     width: 100%;
-    height: 75vh;
-    min-height: 500px;
+    height: 78vh;
+    min-height: 480px;
     background: #0f1117;
 }
 .reader-frame-wrap iframe {
@@ -574,49 +563,34 @@ a { text-decoration: none; color: inherit; }
     z-index: 2;
 }
 
-.reader-loading {
-    position: absolute;
-    inset: 0;
-    z-index: 5;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    background: #0f1117;
-    color: #e8eaf0;
-    gap: 14px;
+/* ===== FULLSCREEN MODE (Mobile) ===== */
+body.reader-fullscreen {
+    overflow: hidden;
 }
-.reader-spinner {
-    width: 42px;
-    height: 42px;
-    border: 4px solid #262933;
-    border-top-color: #5b5ce2;
-    border-radius: 50%;
-    animation: spin 0.8s linear infinite;
-}
-.reader-loading p {
-    font-size: 14px;
-    font-weight: 600;
-    color: #aeb4c5;
-}
-
-/* ===== Fullscreen mode on mobile ===== */
 body.reader-fullscreen .reader-container {
     position: fixed;
-    inset: 0;
-    z-index: 9999;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    width: 100vw;
+    height: 100vh;
+    height: 100dvh;
     margin: 0;
     border-radius: 0;
     border: none;
-    display: block;
+    display: flex;
+    flex-direction: column;
     background: #0f1117;
+    z-index: 99999;
+}
+body.reader-fullscreen .reader-toolbar {
+    flex-shrink: 0;
 }
 body.reader-fullscreen .reader-frame-wrap {
-    height: calc(100vh - 48px);
+    flex: 1;
+    height: auto;
     min-height: 0;
-}
-body.reader-fullscreen {
-    overflow: hidden;
 }
 
 /* =========================================================
@@ -653,7 +627,6 @@ body.reader-fullscreen {
     grid-template-columns: repeat(5, 1fr);
     gap: 18px;
 }
-
 .related-card {
     background: var(--surface);
     border: 1px solid var(--border);
@@ -794,29 +767,36 @@ body.reader-fullscreen {
 }
 
 /* =========================================================
-   CONTINUE READING PROMPT
+   CONTINUE READING PROMPT (FIXED — Overflow)
 ========================================================= */
 .continue-prompt {
     position: fixed;
-    inset: 0;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
     z-index: 99998;
     display: none;
     align-items: center;
     justify-content: center;
-    padding: 20px;
+    padding: 16px;
     background: rgba(10, 12, 18, 0.72);
     backdrop-filter: blur(8px);
+    overflow: hidden;
 }
 .continue-prompt.open { display: flex; }
+
 .continue-box {
     width: 100%;
-    max-width: 430px;
-    padding: 30px 26px 22px;
+    max-width: 420px;
+    padding: 28px 22px 20px;
     background: var(--surface);
     border-radius: 20px;
     box-shadow: 0 30px 80px rgba(0, 0, 0, 0.35);
     text-align: center;
     animation: continuePop 0.3s ease;
+    box-sizing: border-box;
+    overflow: hidden;
 }
 @keyframes continuePop {
     from { opacity: 0; transform: translateY(20px) scale(0.96); }
@@ -836,12 +816,16 @@ body.reader-fullscreen {
     font-size: 21px;
     margin-bottom: 10px;
     color: var(--text);
+    word-wrap: break-word;
 }
 .continue-box p {
     color: var(--text-soft);
     font-size: 14px;
     line-height: 1.6;
     margin-bottom: 22px;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+    white-space: normal;
 }
 .continue-actions {
     display: flex;
@@ -850,13 +834,17 @@ body.reader-fullscreen {
     margin-bottom: 12px;
 }
 .continue-btn {
-    padding: 13px 18px;
+    width: 100%;
+    padding: 13px 16px;
     border-radius: 12px;
     font-size: 14px;
     font-weight: 700;
     cursor: pointer;
     transition: 0.2s;
     border: none;
+    box-sizing: border-box;
+    white-space: normal;
+    word-wrap: break-word;
 }
 .continue-btn.primary {
     background: var(--primary);
@@ -884,13 +872,25 @@ body.reader-fullscreen {
     padding: 8px;
     cursor: pointer;
     transition: 0.2s;
+    width: 100%;
 }
 .continue-cancel:hover { color: var(--text); }
 
 @media (max-width: 500px) {
-    .continue-box { padding: 24px 18px 16px; }
+    .continue-prompt { padding: 12px; }
+    .continue-box {
+        padding: 24px 16px 16px;
+        max-width: 100%;
+    }
+    .continue-icon {
+        width: 55px;
+        height: 55px;
+        font-size: 26px;
+        margin-bottom: 12px;
+    }
     .continue-box h3 { font-size: 19px; }
-    .continue-box p { font-size: 13px; }
+    .continue-box p { font-size: 13px; margin-bottom: 18px; }
+    .continue-btn { font-size: 13px; padding: 12px 14px; }
 }
 
 /* =========================================================
@@ -915,6 +915,12 @@ body.reader-fullscreen {
     .main-cover, .favorite-large { max-width: 310px; }
     .info-column { text-align: left; }
     .related-grid { grid-template-columns: repeat(3, 1fr); }
+
+    /* Mobile: reader is fullscreen by default */
+    .reader-frame-wrap {
+        height: 70vh;
+        min-height: 400px;
+    }
 }
 
 @media (max-width: 600px) {
@@ -955,15 +961,6 @@ body.reader-fullscreen {
     .mobile-bottom-nav small { font-size: 9px; }
     .mobile-bottom-nav a.active { color: var(--primary); }
     body { padding-bottom: 68px; }
-
-    /* Mobile reader: By default fullscreen */
-    .reader-frame-wrap {
-        height: 70vh;
-        min-height: 400px;
-    }
-    .reader-toolbar { height: 46px; padding: 0 10px; }
-    .reader-toolbar-title { font-size: 12px; }
-    .reader-toolbar-btn { width: 32px; height: 32px; font-size: 14px; }
 }
 
 @media (max-width: 430px) {

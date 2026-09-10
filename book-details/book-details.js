@@ -1,6 +1,6 @@
 /* =========================================================
    BOOK LIBRARY — BOOK DETAILS JAVASCRIPT
-   Version 9.0 (Fixed Reader — No Loading Overlay)
+   Version 10.0 (True Fullscreen Reader on Mobile)
 ========================================================= */
 
 "use strict";
@@ -80,6 +80,7 @@ const elements = {
 
 let toastTimer = null;
 let readingSessionStart = null;
+let savedScrollY = 0;
 
 document.addEventListener("DOMContentLoaded", function () {
     initializeHeaderEvents();
@@ -698,7 +699,7 @@ function getBookProgress(ia) {
 }
 
 /* =========================================================
-   INLINE READER (SIMPLE + WORKING)
+   READER (Fixed Fullscreen + Reliable Loading)
 ========================================================= */
 function handleReadClick() {
     if (!state.ia) {
@@ -744,7 +745,7 @@ function hideContinuePrompt() {
     if (elements.continuePrompt) elements.continuePrompt.classList.remove("open");
 }
 
-/* ===== Open Reader (SIMPLE & RELIABLE) ===== */
+/* ===== Open Reader ===== */
 function openReader(restart) {
     if (!state.ia) return;
     hideContinuePrompt();
@@ -757,25 +758,38 @@ function openReader(restart) {
         elements.readerToolbarTitle.textContent = cleanText(state.book.title || "Reading");
     }
 
-    // Build embed URL
+    // Build Archive.org embed URL
+    // ui=embed → clean minimal UI
+    // view=theater → single page view
     var embedUrl = "https://archive.org/embed/" + encodeURIComponent(state.ia);
+    embedUrl += "?ui=embed&view=theater";
     if (restart) {
-        embedUrl += "?pages=1";
+        embedUrl += "&pages=1";
     }
 
-    // Set iframe src FIRST
     iframe.src = embedUrl;
 
-    // Then show container
-    container.classList.add("show");
-
-    // Mobile → auto fullscreen
+    // On mobile → fullscreen
     if (window.innerWidth < 800) {
+        savedScrollY = window.scrollY || window.pageYOffset || 0;
         document.body.classList.add("reader-fullscreen");
         state.fullscreen = true;
         updateFullscreenBtn();
+
+        // Try native fullscreen
+        setTimeout(function () {
+            try {
+                var el = document.documentElement;
+                if (el.requestFullscreen) {
+                    el.requestFullscreen().catch(function () {});
+                } else if (el.webkitRequestFullscreen) {
+                    el.webkitRequestFullscreen();
+                }
+            } catch (e) {}
+        }, 150);
     } else {
-        // Desktop → scroll to reader
+        // Desktop → show inline
+        container.classList.add("show");
         setTimeout(function () {
             container.scrollIntoView({ behavior: "smooth", block: "start" });
         }, 200);
@@ -798,10 +812,16 @@ function closeReader() {
     var iframe = elements.readerIframe;
 
     if (container) container.classList.remove("show");
+
     if (state.fullscreen) {
         document.body.classList.remove("reader-fullscreen");
         state.fullscreen = false;
         updateFullscreenBtn();
+
+        // Restore scroll
+        setTimeout(function () {
+            window.scrollTo(0, savedScrollY);
+        }, 50);
     }
 
     stopReadingSession();
@@ -817,6 +837,15 @@ function closeReader() {
         setTimeout(function () { iframe.src = "about:blank"; }, 300);
     }
 
+    // Exit native fullscreen
+    try {
+        if (document.fullscreenElement) {
+            document.exitFullscreen().catch(function () {});
+        } else if (document.webkitFullscreenElement) {
+            document.webkitExitFullscreen();
+        }
+    } catch (e) {}
+
     showToast("Reading position saved.", "✓");
 }
 
@@ -824,9 +853,24 @@ function closeReader() {
 function toggleFullscreen() {
     state.fullscreen = !state.fullscreen;
     if (state.fullscreen) {
+        savedScrollY = window.scrollY || window.pageYOffset || 0;
         document.body.classList.add("reader-fullscreen");
+        try {
+            var el = document.documentElement;
+            if (el.requestFullscreen) {
+                el.requestFullscreen().catch(function () {});
+            }
+        } catch (e) {}
     } else {
         document.body.classList.remove("reader-fullscreen");
+        try {
+            if (document.fullscreenElement) {
+                document.exitFullscreen().catch(function () {});
+            }
+        } catch (e) {}
+        setTimeout(function () {
+            window.scrollTo(0, savedScrollY);
+        }, 50);
     }
     updateFullscreenBtn();
 }
@@ -838,7 +882,7 @@ function updateFullscreenBtn() {
     }
 }
 
-/* ===== Reading Session Tracker ===== */
+/* ===== Reading Session ===== */
 function startReadingSession() {
     readingSessionStart = Date.now();
 }
@@ -855,7 +899,7 @@ function stopReadingSession() {
     readingSessionStart = null;
 }
 
-/* ===== Reader Events Init ===== */
+/* ===== Reader Events ===== */
 function initializeReader() {
     if (elements.readerCloseBtn) {
         elements.readerCloseBtn.addEventListener("click", closeReader);
@@ -894,6 +938,17 @@ function initializeReader() {
                 toggleFullscreen();
                 return;
             }
+            if (elements.readerContainer && elements.readerContainer.classList.contains("show")) {
+                closeReader();
+            }
+        }
+    });
+
+    // Sync with browser fullscreen exit
+    document.addEventListener("fullscreenchange", function () {
+        if (!document.fullscreenElement && state.fullscreen) {
+            // User exited fullscreen manually — keep body class? No, close.
+            // Actually just update button state, don't close.
         }
     });
 }
