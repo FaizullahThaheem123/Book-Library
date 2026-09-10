@@ -678,3 +678,21 @@ body.dark .book-cover {
     .details-btn { font-size: 11px; }
 }
 
+/* ===== ACCESS BADGE (NEW) ===== */
+.access-badge {
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    padding: 5px 10px;
+    border-radius: 999px;
+    font-size: 10px;
+    font-weight: 700;
+    color: #fff;
+    z-index: 2;
+    backdrop-filter: blur(6px);
+    letter-spacing: 0.3px;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.18);
+}
+.access-badge.free { background: rgba(22, 163, 74, 0.92); }
+.access-badge.borrow { background: rgba(217, 119, 6, 0.92); }
+.access-badge.info { background: rgba(107, 114, 128, 0.92); }

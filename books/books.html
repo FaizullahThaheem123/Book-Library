@@ -8,7 +8,7 @@
 </head>
 <body>
 
-    <!-- ===== HEADER (UNIFIED) ===== -->
+    <!-- HEADER -->
     <header class="site-header">
         <div class="header-container">
             <a href="../index/index.html" class="logo">
@@ -39,9 +39,7 @@
         </div>
     </header>
 
-    <!-- ===== MAIN CONTENT ===== -->
     <main>
-        <!-- HERO (without search) -->
         <section class="books-hero">
             <div class="hero-container">
                 <div class="hero-content">
@@ -49,12 +47,9 @@
                     <h1>Discover Your <span>Next Book</span></h1>
                     <p>Search millions of books from the world's largest open library collection.</p>
                 </div>
-                <!-- Big search form removed -->
-                <!-- Quick-search buttons removed -->
             </div>
         </section>
 
-        <!-- BOOKS SECTION -->
         <section class="books-section">
             <div class="container">
                 <div class="books-topbar">
@@ -76,6 +71,7 @@
 
                 <div class="filters">
                     <button class="filter-btn active" data-filter="all">All Books</button>
+                    <button class="filter-btn" data-filter="free">🟢 Free Only</button>
                     <button class="filter-btn" data-filter="fiction">Fiction</button>
                     <button class="filter-btn" data-filter="history">History</button>
                     <button class="filter-btn" data-filter="science">Science</button>
@@ -109,7 +105,6 @@
             </div>
         </section>
 
-        <!-- DISCOVERY -->
         <section class="discovery-section">
             <div class="container">
                 <div class="discovery-card">
@@ -125,7 +120,6 @@
         </section>
     </main>
 
-    <!-- ===== FOOTER ===== -->
     <footer class="site-footer">
         <div class="container">
             <div class="footer-grid">
@@ -156,7 +150,6 @@
         </div>
     </footer>
 
-    <!-- ===== MOBILE BOTTOM NAV ===== -->
     <nav class="mobile-bottom-nav">
         <a href="../index/index.html"><span>🏠</span><small>Home</small></a>
         <a href="books.html" class="active"><span>📚</span><small>Books</small></a>
@@ -165,7 +158,6 @@
         <a href="../my-books/my-books.html"><span>📖</span><small>My Books</small></a>
     </nav>
 
-    <!-- ===== TOAST ===== -->
     <div class="toast" id="toast">
         <span id="toastIcon">✓</span>
         <span id="toastMessage">Done</span>
@@ -174,4 +166,3 @@
     <script src="books.js"></script>
 </body>
 </html>
-

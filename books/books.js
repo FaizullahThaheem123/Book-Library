@@ -1,12 +1,13 @@
 /* =========================================================
    BOOK LIBRARY — BOOKS PAGE JAVASCRIPT
-   Version 2.0 (Unified Header + Original Functionality + Theme Sync)
+   Version 3.0 (Free Book Detection)
 ========================================================= */
 
 "use strict";
 
 const CONFIG = {
     API_URL: "https://openlibrary.org/search.json",
+    ARCHIVE_URL: "https://archive.org",
     COVER_URL: "https://covers.openlibrary.org/b/id",
     PAGE_SIZE: 20,
     DEFAULT_QUERY: "best books",
@@ -66,9 +67,7 @@ document.addEventListener("DOMContentLoaded", function () {
     loadInitialBooks();
 });
 
-/* =========================================================
-   THEME SYNC (Listen for changes from other pages)
-========================================================= */
+/* ===== THEME SYNC ===== */
 function setupThemeSync() {
     window.addEventListener("storage", function(e) {
         if (e.key === CONFIG.THEME_KEY) {
@@ -84,9 +83,7 @@ function setupThemeSync() {
     });
 }
 
-/* =========================================================
-   HEADER EVENTS
-========================================================= */
+/* ===== HEADER ===== */
 function initializeHeaderEvents() {
     if (elements.headerSearchBtn) {
         elements.headerSearchBtn.addEventListener("click", function() {
@@ -95,9 +92,6 @@ function initializeHeaderEvents() {
     }
 }
 
-/* =========================================================
-   THEME
-========================================================= */
 function initializeTheme() {
     const saved = localStorage.getItem(CONFIG.THEME_KEY);
     if (saved === "dark") {
@@ -112,9 +106,6 @@ function initializeTheme() {
     });
 }
 
-/* =========================================================
-   MOBILE MENU
-========================================================= */
 function initializeMobileMenu() {
     if (!elements.mobileMenuButton || !elements.mobileMenu) return;
     elements.mobileMenuButton.addEventListener("click", function (e) {
@@ -135,10 +126,7 @@ function initializeMobileMenu() {
     });
 }
 
-/* =========================================================
-   REST OF ORIGINAL BOOKS.JS CODE
-========================================================= */
-
+/* ===== LOAD INITIAL ===== */
 function getQueryFromURL() {
     const params = new URLSearchParams(window.location.search);
     return params.get("q") || params.get("subject") || "";
@@ -171,6 +159,7 @@ function initializeSearch() {
     });
 }
 
+/* ===== SEARCH (with ebook_access) ===== */
 function searchBooks(reset = false) {
     if (state.loading) return;
     state.loading = true;
@@ -184,7 +173,7 @@ function searchBooks(reset = false) {
     url.searchParams.set("q", state.query);
     url.searchParams.set("page", state.page);
     url.searchParams.set("limit", CONFIG.PAGE_SIZE);
-    url.searchParams.set("fields", "key,title,author_name,first_publish_year,cover_i,edition_key,publisher,subject");
+    url.searchParams.set("fields", "key,title,author_name,first_publish_year,cover_i,edition_key,publisher,subject,ia,ebook_access,public_scan_b");
 
     fetch(url.toString())
         .then(response => {
@@ -216,6 +205,7 @@ function updateURL(query) {
     window.history.replaceState({}, "", url);
 }
 
+/* ===== RENDER ===== */
 function renderBooks() {
     let books = [...state.books];
     books = applyFilter(books);
@@ -229,6 +219,16 @@ function renderBooks() {
     attachBookEvents();
 }
 
+function getAccessBadge(book) {
+    if (book.ebook_access === "public" || book.public_scan_b === true) {
+        return { text: "🟢 Free", cls: "free" };
+    }
+    if (book.ebook_access === "borrowable") {
+        return { text: "🟡 Borrow", cls: "borrow" };
+    }
+    return { text: "⚪ Info", cls: "info" };
+}
+
 function createBookCard(book, index) {
     const title = cleanText(book.title || "Unknown Title");
     const author = cleanText(getAuthor(book));
@@ -237,11 +237,13 @@ function createBookCard(book, index) {
     const key = normalizeKey(book.key);
     const favorite = isFavorite(key);
     const delay = Math.min(index * 0.025, 0.5);
+    const badge = getAccessBadge(book);
 
     return `
         <article class="book-card" data-key="${escapeHTML(key)}" style="animation-delay:${delay}s">
             <div class="book-cover">
                 <img src="${escapeHTML(cover)}" alt="${escapeHTML(title)}" loading="lazy" onerror="this.style.display='none'; this.parentElement.classList.add('cover-error');">
+                <span class="access-badge ${badge.cls}">${badge.text}</span>
                 <button class="favorite-button ${favorite ? "active" : ""}" data-favorite="${escapeHTML(key)}" title="${favorite ? "Remove from favorites" : "Add to favorites"}">${favorite ? "♥" : "♡"}</button>
             </div>
             <div class="book-content">
@@ -316,9 +318,7 @@ function openBookDetails(key) {
     window.location.href = `${CONFIG.DETAILS_PAGE}?key=${encodeURIComponent(key)}`;
 }
 
-/* =========================================================
-   FAVORITES
-========================================================= */
+/* ===== FAVORITES ===== */
 function getFavorites() {
     try { return JSON.parse(localStorage.getItem(CONFIG.FAVORITES_KEY)) || []; } catch { return []; }
 }
@@ -362,9 +362,7 @@ function saveRecentBook(key) {
     localStorage.setItem("bookLibraryRecent", JSON.stringify(recent));
 }
 
-/* =========================================================
-   FILTERS & SORT
-========================================================= */
+/* ===== FILTERS & SORT ===== */
 function initializeFilters() {
     document.querySelectorAll(".filter-btn").forEach(btn => {
         btn.addEventListener("click", function () {
@@ -378,6 +376,11 @@ function initializeFilters() {
 
 function applyFilter(books) {
     if (state.filter === "all") return books;
+    if (state.filter === "free") {
+        return books.filter(function(b) {
+            return b.ebook_access === "public" || b.public_scan_b === true;
+        });
+    }
     const keyword = getFilterKeyword(state.filter);
     if (!keyword) return books;
     return books.filter(book => {
@@ -408,9 +411,7 @@ function applySort(books) {
     }
 }
 
-/* =========================================================
-   LOAD MORE
-========================================================= */
+/* ===== LOAD MORE ===== */
 function initializeLoadMore() {
     elements.loadMoreButton.addEventListener("click", function () {
         if (state.loading) return;
@@ -429,9 +430,7 @@ function updateLoadMore() {
     elements.paginationInfo.textContent = `Showing ${loaded.toLocaleString()} books from the available results`;
 }
 
-/* =========================================================
-   QUICK SEARCH
-========================================================= */
+/* ===== QUICK SEARCH ===== */
 function initializeQuickSearch() {
     document.querySelectorAll("[data-search]").forEach(btn => {
         btn.addEventListener("click", function () {
@@ -445,9 +444,7 @@ function initializeQuickSearch() {
     });
 }
 
-/* =========================================================
-   RESET
-========================================================= */
+/* ===== RESET ===== */
 function initializeReset() {
     elements.resetSearch.addEventListener("click", function () {
         elements.searchInput.value = "";
@@ -458,9 +455,7 @@ function initializeReset() {
     });
 }
 
-/* =========================================================
-   RANDOM BOOK
-========================================================= */
+/* ===== RANDOM BOOK ===== */
 function initializeRandomBook() {
     elements.randomBookButton.addEventListener("click", function () {
         const topics = ["classic literature","adventure","science","history","philosophy","fiction","technology","poetry","islamic books","biography"];
@@ -473,9 +468,7 @@ function initializeRandomBook() {
     });
 }
 
-/* =========================================================
-   RESULTS INFO
-========================================================= */
+/* ===== RESULTS INFO ===== */
 function updateResultsInfo() {
     if (state.query) {
         elements.resultsTitle.textContent = `Results for "${state.query}"`;
@@ -485,9 +478,7 @@ function updateResultsInfo() {
     }
 }
 
-/* =========================================================
-   LOADING / EMPTY
-========================================================= */
+/* ===== LOADING / EMPTY ===== */
 function showLoading() {
     elements.loadingState.classList.add("show");
     elements.emptyState.classList.remove("show");
@@ -500,9 +491,7 @@ function showEmpty() {
 }
 function hideEmpty() { elements.emptyState.classList.remove("show"); }
 
-/* =========================================================
-   TOAST
-========================================================= */
+/* ===== TOAST ===== */
 function showToast(message, icon = "✓") {
     elements.toastMessage.textContent = message;
     elements.toastIcon.textContent = icon;
@@ -511,9 +500,6 @@ function showToast(message, icon = "✓") {
     toastTimer = setTimeout(() => elements.toast.classList.remove("show"), 2600);
 }
 
-/* =========================================================
-   HELPERS
-========================================================= */
+/* ===== HELPERS ===== */
 function cleanText(text) { return String(text).replace(/\s+/g, " ").trim(); }
 function escapeHTML(v) { return String(v).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#039;"); }
-

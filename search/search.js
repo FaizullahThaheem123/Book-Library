@@ -1,6 +1,6 @@
 /* =========================================================
    BOOK LIBRARY — SEARCH PAGE JAVASCRIPT
-   Version 2.0 (Unified Header + Theme Sync)
+   Version 3.0 (Free Book Detection)
 ========================================================= */
 
 "use strict";
@@ -23,7 +23,6 @@ let isLoading = false;
 let currentSort = "relevance";
 let toastTimer = null;
 
-// DOM refs
 let el = {};
 
 function getElements() {
@@ -63,9 +62,7 @@ function initializeApp() {
     loadQueryFromURL();
 }
 
-/* =========================================================
-   THEME SYNC
-========================================================= */
+/* ===== THEME SYNC ===== */
 function setupThemeSync() {
     window.addEventListener("storage", function(e) {
         if (e.key === CONFIG.THEME_KEY) {
@@ -81,9 +78,6 @@ function setupThemeSync() {
     });
 }
 
-/* =========================================================
-   HEADER EVENTS (Search Button - focuses on search input)
-========================================================= */
 function setupHeaderEvents() {
     if (el.headerSearchBtn) {
         el.headerSearchBtn.addEventListener("click", function () {
@@ -95,9 +89,6 @@ function setupHeaderEvents() {
     }
 }
 
-/* =========================================================
-   MOBILE MENU (SAME AS BOOKS PAGE)
-========================================================= */
 function setupMobileMenu() {
     if (!el.mobileMenuButton || !el.mobileMenu) return;
     el.mobileMenuButton.addEventListener("click", function (e) {
@@ -118,9 +109,6 @@ function setupMobileMenu() {
     });
 }
 
-/* =========================================================
-   THEME
-========================================================= */
 function setupTheme() {
     var savedTheme = localStorage.getItem(CONFIG.THEME_KEY);
     if (savedTheme === "dark") {
@@ -137,11 +125,7 @@ function setupTheme() {
     }
 }
 
-/* =========================================================
-   EVENTS
-========================================================= */
 function setupEvents() {
-    // Search form
     if (el.searchForm) {
         el.searchForm.addEventListener("submit", function (e) {
             e.preventDefault();
@@ -154,8 +138,6 @@ function setupEvents() {
             performSearch(query);
         });
     }
-
-    // Quick searches
     document.querySelectorAll(".quick-searches button").forEach(function (button) {
         button.addEventListener("click", function () {
             var query = this.getAttribute("data-query");
@@ -164,8 +146,6 @@ function setupEvents() {
             performSearch(query);
         });
     });
-
-    // Load more
     if (el.loadMoreBtn) {
         el.loadMoreBtn.addEventListener("click", function () {
             if (isLoading) return;
@@ -173,21 +153,15 @@ function setupEvents() {
             searchBooks(currentQuery, currentPage, true);
         });
     }
-
-    // Sort
     if (el.sortSelect) {
         el.sortSelect.addEventListener("change", function () {
             currentSort = this.value;
             renderBooks();
         });
     }
-
-    // Clear search
     if (el.clearSearchBtn) {
         el.clearSearchBtn.addEventListener("click", clearSearch);
     }
-
-    // Favorite buttons delegation
     if (el.booksGrid) {
         el.booksGrid.addEventListener("click", function (e) {
             var btn = e.target.closest(".favorite-btn");
@@ -199,9 +173,6 @@ function setupEvents() {
     }
 }
 
-/* =========================================================
-   SEARCH LOGIC
-========================================================= */
 function loadQueryFromURL() {
     var params = new URLSearchParams(window.location.search);
     var query = params.get("q");
@@ -240,9 +211,8 @@ async function searchBooks(query, page, append) {
         if (el.booksGrid) el.booksGrid.innerHTML = "";
         if (el.resultsInfo) el.resultsInfo.textContent = "Searching...";
     }
-
     try {
-        var fields = ["key","title","author_name","first_publish_year","cover_i","edition_key","isbn","publisher","language","number_of_pages_median","subject"].join(",");
+        var fields = ["key","title","author_name","first_publish_year","cover_i","edition_key","isbn","publisher","language","number_of_pages_median","subject","ia","ebook_access","public_scan_b"].join(",");
         var url = CONFIG.API_URL + "?q=" + encodeURIComponent(query) + "&page=" + page + "&limit=" + CONFIG.BOOKS_PER_PAGE + "&fields=" + encodeURIComponent(fields);
         var response = await fetch(url);
         if (!response.ok) throw new Error("Search request failed.");
@@ -259,10 +229,6 @@ async function searchBooks(query, page, append) {
             showElement(el.noResults);
             hideElement(el.loadMoreContainer);
             if (el.booksGrid) el.booksGrid.innerHTML = "";
-            var titleEl = el.noResults ? el.noResults.querySelector("h3") : null;
-            var msgEl = el.noResults ? el.noResults.querySelector("p") : null;
-            if (titleEl) titleEl.textContent = "No books found";
-            if (msgEl) msgEl.textContent = "Try another book title, author or subject.";
             return;
         }
         hideElement(el.noResults);
@@ -279,10 +245,6 @@ async function searchBooks(query, page, append) {
         if (el.booksGrid) el.booksGrid.innerHTML = "";
         hideElement(el.loadMoreContainer);
         showElement(el.noResults);
-        var titleEl2 = el.noResults ? el.noResults.querySelector("h3") : null;
-        var msgEl2 = el.noResults ? el.noResults.querySelector("p") : null;
-        if (titleEl2) titleEl2.textContent = "Something went wrong";
-        if (msgEl2) msgEl2.textContent = "Unable to search books right now. Please check your internet connection and try again.";
         showToast("Unable to search books.", "!");
     } finally {
         isLoading = false;
@@ -314,6 +276,16 @@ function renderBooks() {
     el.booksGrid.innerHTML = books.map(function(book) { return createBookCard(book); }).join("");
 }
 
+function getAccessBadge(book) {
+    if (book.ebook_access === "public" || book.public_scan_b === true) {
+        return { text: "🟢 Free", cls: "free" };
+    }
+    if (book.ebook_access === "borrowable") {
+        return { text: "🟡 Borrow", cls: "borrow" };
+    }
+    return { text: "⚪ Info", cls: "info" };
+}
+
 function createBookCard(book) {
     var key = normalizeKey(book.key);
     var title = cleanText(book.title || "Untitled Book");
@@ -324,11 +296,13 @@ function createBookCard(book) {
     var isFavorite = isBookFavorite(key);
     var favClass = isFavorite ? "active" : "";
     var favIcon = isFavorite ? "♥" : "♡";
+    var badge = getAccessBadge(book);
 
     return `
         <article class="book-card">
             <div class="book-cover">
                 <img src="${escapeHTML(coverUrl)}" alt="${escapeHTML(title)} cover" loading="lazy" onerror="this.src='${getPlaceholderCover()}'">
+                <span class="access-badge ${badge.cls}">${badge.text}</span>
                 <button class="favorite-btn ${favClass}" data-key="${escapeHTML(key)}" aria-label="${isFavorite ? "Remove" : "Add"} favorites">${favIcon}</button>
             </div>
             <div class="book-info">
@@ -343,9 +317,6 @@ function createBookCard(book) {
     `;
 }
 
-/* =========================================================
-   FAVORITES
-========================================================= */
 function normalizeKey(key) {
     if (!key) return "";
     return String(key).replace(/^\/works\//, "").replace(/^works\//, "");
@@ -382,9 +353,6 @@ function toggleFavorite(key) {
     renderBooks();
 }
 
-/* =========================================================
-   CLEAR SEARCH
-========================================================= */
 function clearSearch() {
     currentQuery = "";
     currentPage = 1;
@@ -398,21 +366,16 @@ function clearSearch() {
     if (el.resultsInfo) el.resultsInfo.textContent = "Enter a search above to find books.";
     hideElement(el.noResults);
     hideElement(el.loadMoreContainer);
-    var cleanURL = window.location.pathname;
-    window.history.replaceState({}, "", cleanURL);
+    window.history.replaceState({}, "", window.location.pathname);
     if (el.searchInput) el.searchInput.focus();
 }
 
-/* =========================================================
-   UI HELPERS
-========================================================= */
 function showLoading(show) {
     if (!el.loadingContainer) return;
     el.loadingContainer.style.display = show ? "flex" : "none";
 }
-
-function showElement(el2) { if (el2) el2.style.display = ""; }
-function hideElement(el2) { if (el2) el2.style.display = "none"; }
+function showElement(e) { if (e) e.style.display = ""; }
+function hideElement(e) { if (e) e.style.display = "none"; }
 
 function getPlaceholderCover() {
     var svg = '<svg xmlns="http://www.w3.org/2000/svg" width="300" height="450" viewBox="0 0 300 450">' +
@@ -429,9 +392,6 @@ function escapeHTML(v) {
     return String(v || "").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#039;");
 }
 
-/* =========================================================
-   TOAST
-========================================================= */
 function showToast(message, icon) {
     icon = icon || "✓";
     if (!el.toast) return;

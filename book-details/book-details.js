@@ -1,6 +1,6 @@
 /* =========================================================
    BOOK LIBRARY — BOOK DETAILS JAVASCRIPT
-   Version 3.4 (Unified Header + Theme Sync)
+   Version 4.0 (Free Book Detection)
 ========================================================= */
 
 "use strict";
@@ -8,6 +8,7 @@
 const CONFIG = {
     API_URL: "https://openlibrary.org",
     SEARCH_URL: "https://openlibrary.org/search.json",
+    ARCHIVE_URL: "https://archive.org",
     COVER_URL: "https://covers.openlibrary.org/b/id",
     FAVORITES_KEY: "bookLibraryFavorites",
     MY_BOOKS_KEY: "bookLibraryMyBooks",
@@ -23,7 +24,8 @@ const state = {
     inMyBooks: false,
     myBookStatus: "want",
     readable: false,
-    ia: null
+    ia: null,
+    ebookAccess: "no_ebook"
 };
 
 const elements = {
@@ -79,9 +81,6 @@ document.addEventListener("DOMContentLoaded", function () {
     loadBook();
 });
 
-/* =========================================================
-   THEME SYNC
-========================================================= */
 function setupThemeSync() {
     window.addEventListener("storage", function(e) {
         if (e.key === CONFIG.THEME_KEY) {
@@ -97,9 +96,6 @@ function setupThemeSync() {
     });
 }
 
-/* =========================================================
-   HEADER EVENTS (Search Button)
-========================================================= */
 function initializeHeaderEvents() {
     if (elements.headerSearchBtn) {
         elements.headerSearchBtn.addEventListener("click", function () {
@@ -108,17 +104,12 @@ function initializeHeaderEvents() {
     }
 }
 
-/* =========================================================
-   MOBILE MENU (UNIFIED - SAME AS BOOKS PAGE)
-========================================================= */
 function initializeMobileMenu() {
     if (!elements.mobileMenuButton || !elements.mobileMenu) return;
-
     elements.mobileMenuButton.addEventListener("click", function (e) {
         e.stopPropagation();
         elements.mobileMenu.classList.toggle("open");
     });
-
     document.addEventListener("click", function (e) {
         if (elements.mobileMenu.classList.contains("open") &&
             !elements.mobileMenu.contains(e.target) &&
@@ -126,7 +117,6 @@ function initializeMobileMenu() {
             elements.mobileMenu.classList.remove("open");
         }
     });
-
     elements.mobileMenu.querySelectorAll("a").forEach(function (link) {
         link.addEventListener("click", function () {
             elements.mobileMenu.classList.remove("open");
@@ -134,9 +124,6 @@ function initializeMobileMenu() {
     });
 }
 
-/* =========================================================
-   THEME
-========================================================= */
 function initializeTheme() {
     var savedTheme = localStorage.getItem(CONFIG.THEME_KEY);
     if (savedTheme === "dark") {
@@ -153,9 +140,6 @@ function initializeTheme() {
     }
 }
 
-/* =========================================================
-   REST OF ORIGINAL BOOK DETAILS LOGIC
-========================================================= */
 function getBookKey() {
     var params = new URLSearchParams(window.location.search);
     return params.get("key") || "";
@@ -200,7 +184,7 @@ async function loadBook() {
             if (fallback) state.ia = fallback;
         }
 
-        state.readable = !!state.ia;
+        await checkFreeAccess();
 
         renderBook();
         updateMyBooksState();
@@ -224,7 +208,7 @@ async function enrichBookData() {
         var url = new URL(CONFIG.SEARCH_URL);
         url.searchParams.set("title", book.title || "");
         url.searchParams.set("limit", "5");
-        url.searchParams.set("fields", "key,title,author_name,first_publish_year,cover_i,publisher,number_of_pages_median,language,ia");
+        url.searchParams.set("fields", "key,title,author_name,first_publish_year,cover_i,publisher,number_of_pages_median,language,ia,ebook_access,public_scan_b");
         var response = await fetch(url.toString());
         if (response.ok) {
             var data = await response.json();
@@ -234,11 +218,9 @@ async function enrichBookData() {
                 book._edition = match;
                 if (!state.ia) {
                     var editionIA = getFirstIA(match.ia);
-                    if (editionIA) {
-                        state.ia = editionIA;
-                        state.readable = true;
-                    }
+                    if (editionIA) state.ia = editionIA;
                 }
+                if (match.ebook_access) state.ebookAccess = match.ebook_access;
             }
         }
     } catch (error) {
@@ -257,6 +239,53 @@ async function getAuthorName(authorRef) {
     } catch { return ""; }
 }
 
+/* ===== CHECK FREE ACCESS ===== */
+async function checkFreeAccess() {
+    state.ebookAccess = state.ebookAccess || "no_ebook";
+    state.readable = false;
+
+    if (!state.ia) {
+        state.ebookAccess = "no_ebook";
+        return;
+    }
+
+    if (state.ebookAccess === "public") {
+        state.readable = true;
+        return;
+    }
+
+    try {
+        var response = await fetch(CONFIG.ARCHIVE_URL + "/metadata/" + encodeURIComponent(state.ia));
+        if (!response.ok) return;
+        var data = await response.json();
+        var meta = data.metadata || {};
+        var restricted = String(meta["access-restricted-item"] || "").toLowerCase();
+        var collection = (meta.collection || "").toString().toLowerCase();
+        var freeCollections = ["opensource", "americana", "toronto", "gutenberg", "cdl", "library_of_congress"];
+        var isFreeCollection = freeCollections.some(function(c) { return collection.indexOf(c) !== -1; });
+
+        if (restricted === "false" || restricted === "" || isFreeCollection) {
+            var files = data.files || [];
+            var hasReadableFile = files.some(function(f) {
+                var name = (f.name || "").toLowerCase();
+                return name.endsWith(".pdf") || name.endsWith(".epub") || name.endsWith(".txt");
+            });
+            if (hasReadableFile || restricted === "false" || isFreeCollection) {
+                state.ebookAccess = "public";
+                state.readable = true;
+                return;
+            }
+        }
+        if (restricted === "true") {
+            state.ebookAccess = "borrowable";
+            return;
+        }
+        state.ebookAccess = "printdisabled";
+    } catch (error) {
+        console.warn("Archive metadata check failed:", error);
+    }
+}
+
 function renderBook() {
     var book = state.book;
     var edition = book._edition || {};
@@ -272,16 +301,22 @@ function renderBook() {
     renderDescription(book);
     renderSubjects(book);
     updateFavoriteState();
+    renderReadButton();
+}
 
+function renderReadButton() {
     var readBtn = elements.readButton;
     var readerContainer = elements.readerContainer;
     var readerIframe = elements.readerIframe;
     var accessMsg = elements.accessMessage;
+    if (!readBtn) return;
 
-    if (state.ia) {
-        readBtn.innerHTML = '📖 <span>Read Now</span>';
+    if (state.ebookAccess === "public" && state.ia) {
+        readBtn.innerHTML = '📖 <span>Read Free</span>';
         readBtn.style.opacity = '1';
         readBtn.style.cursor = 'pointer';
+        readBtn.style.background = '#16a34a';
+        readBtn.disabled = false;
         readBtn.onclick = function() {
             var embedUrl = "https://archive.org/embed/" + encodeURIComponent(state.ia);
             readerIframe.src = embedUrl;
@@ -290,22 +325,47 @@ function renderBook() {
         };
         if (accessMsg) {
             accessMsg.style.display = 'flex';
-            accessMsg.querySelector('p').textContent = '✅ This book is available to read online. Click "Read Now" to start reading.';
+            accessMsg.querySelector('p').innerHTML = '<strong>✅ Free to Read:</strong> This book is 100% free. Click "Read Free" to start reading now.';
         }
-    } else {
-        readBtn.innerHTML = '📖 <span>Not Available</span>';
-        readBtn.style.opacity = '0.6';
-        readBtn.style.cursor = 'not-allowed';
+        return;
+    }
+
+    if (state.ebookAccess === "borrowable") {
+        readBtn.innerHTML = '📖 <span>Borrow Only</span>';
+        readBtn.style.opacity = '1';
+        readBtn.style.cursor = 'pointer';
+        readBtn.style.background = '#d97706';
+        readBtn.disabled = false;
         readBtn.onclick = function() {
-            showToast('This book is not available for online reading.', '📚');
+            if (state.ia) {
+                window.open("https://archive.org/details/" + encodeURIComponent(state.ia), "_blank", "noopener,noreferrer");
+            } else {
+                showToast('Please visit Open Library to borrow this book.', '📚');
+            }
         };
         if (accessMsg) {
             accessMsg.style.display = 'flex';
-            accessMsg.querySelector('p').textContent = '❌ This book is not available for online reading. You can still add it to your library and track your reading progress.';
+            accessMsg.querySelector('p').innerHTML = '<strong>⚠️ Borrow Required:</strong> This book is not free. You need to borrow it from Open Library (free account required).';
         }
         if (readerContainer) readerContainer.style.display = 'none';
         if (readerIframe) readerIframe.src = '';
+        return;
     }
+
+    readBtn.innerHTML = '📖 <span>Not Available</span>';
+    readBtn.style.opacity = '0.6';
+    readBtn.style.cursor = 'not-allowed';
+    readBtn.style.background = '#6b7280';
+    readBtn.disabled = true;
+    readBtn.onclick = function() {
+        showToast('This book is not available for online reading.', '📚');
+    };
+    if (accessMsg) {
+        accessMsg.style.display = 'flex';
+        accessMsg.querySelector('p').innerHTML = '<strong>❌ Not Available:</strong> This book is not available for online reading. You can still add it to your library.';
+    }
+    if (readerContainer) readerContainer.style.display = 'none';
+    if (readerIframe) readerIframe.src = '';
 }
 
 function getDisplayedAuthor(book, edition) {
@@ -314,17 +374,13 @@ function getDisplayedAuthor(book, edition) {
     return "Unknown Author";
 }
 
-function getYear(book, edition) {
-    return book.first_publish_date || edition.first_publish_year || "—";
-}
+function getYear(book, edition) { return book.first_publish_date || edition.first_publish_year || "—"; }
 function getPublisher(book, edition) {
     if (Array.isArray(edition.publisher) && edition.publisher.length) return edition.publisher.slice(0,2).join(", ");
     if (Array.isArray(book.publishers) && book.publishers.length) return book.publishers.slice(0,2).join(", ");
     return "—";
 }
-function getPages(book, edition) {
-    return edition.number_of_pages_median || book.number_of_pages || "—";
-}
+function getPages(book, edition) { return edition.number_of_pages_median || book.number_of_pages || "—"; }
 function getLanguage(book, edition) {
     if (Array.isArray(edition.language) && edition.language.length) return formatLanguage(edition.language[0]);
     if (Array.isArray(book.languages) && book.languages.length) {
@@ -333,7 +389,6 @@ function getLanguage(book, edition) {
     }
     return "—";
 }
-
 function formatLanguage(code) {
     var codeStr = String(code).split("/").pop().toLowerCase();
     var map = { eng:"English", urd:"Urdu", ara:"Arabic", fas:"Persian", hin:"Hindi", spa:"Spanish", fra:"French", deu:"German", ita:"Italian", por:"Portuguese", rus:"Russian", tur:"Turkish", ben:"Bengali", ind:"Indonesian", jpn:"Japanese", kor:"Korean", chi:"Chinese" };
@@ -375,28 +430,19 @@ function renderSubjects(book) {
     var seen = {};
     subjects.forEach(function(s) {
         var cleaned = cleanText(s);
-        if (cleaned && !seen[cleaned]) {
-            seen[cleaned] = true;
-            unique.push(cleaned);
-        }
+        if (cleaned && !seen[cleaned]) { seen[cleaned] = true; unique.push(cleaned); }
     });
     elements.subjectList.innerHTML = unique.slice(0,15).map(function(s) {
         return '<span class="subject-tag">' + escapeHTML(s) + '</span>';
     }).join("");
 }
 
-/* =========================================================
-   FAVORITES
-========================================================= */
-function getFavorites() {
-    try { return JSON.parse(localStorage.getItem(CONFIG.FAVORITES_KEY)) || []; } catch { return []; }
-}
+/* ===== FAVORITES ===== */
+function getFavorites() { try { return JSON.parse(localStorage.getItem(CONFIG.FAVORITES_KEY)) || []; } catch { return []; } }
 function saveFavorites(fav) { localStorage.setItem(CONFIG.FAVORITES_KEY, JSON.stringify(fav)); }
 
 function initializeFavorite() {
-    if (elements.favoriteButton) {
-        elements.favoriteButton.addEventListener("click", toggleFavorite);
-    }
+    if (elements.favoriteButton) elements.favoriteButton.addEventListener("click", toggleFavorite);
 }
 
 function toggleFavorite() {
@@ -437,18 +483,12 @@ function updateFavoriteState() {
     }
 }
 
-/* =========================================================
-   MY BOOKS
-========================================================= */
-function getMyBooks() {
-    try { return JSON.parse(localStorage.getItem(CONFIG.MY_BOOKS_KEY)) || []; } catch { return []; }
-}
+/* ===== MY BOOKS ===== */
+function getMyBooks() { try { return JSON.parse(localStorage.getItem(CONFIG.MY_BOOKS_KEY)) || []; } catch { return []; } }
 function saveMyBooks(books) { localStorage.setItem(CONFIG.MY_BOOKS_KEY, JSON.stringify(books)); }
 
 function initializeMyBooks() {
-    if (elements.myBooksButton) {
-        elements.myBooksButton.addEventListener("click", toggleMyBook);
-    }
+    if (elements.myBooksButton) elements.myBooksButton.addEventListener("click", toggleMyBook);
 }
 
 function updateMyBooksState() {
@@ -526,13 +566,11 @@ function getNextStatus(status) {
         default: return "want";
     }
 }
-
 function normalizeStatus(status) {
     if (status === "reading") return "reading";
     if (status === "finished" || status === "completed") return "finished";
     return "want";
 }
-
 function getStatusText(status) {
     switch (normalizeStatus(status)) {
         case "reading": return "📖 Reading";
@@ -541,9 +579,7 @@ function getStatusText(status) {
     }
 }
 
-/* =========================================================
-   ACTIONS
-========================================================= */
+/* ===== ACTIONS ===== */
 function initializeActions() {
     if (elements.openLibraryButton) {
         elements.openLibraryButton.addEventListener("click", function() {
@@ -553,9 +589,7 @@ function initializeActions() {
     }
 }
 
-/* =========================================================
-   RELATED BOOKS
-========================================================= */
+/* ===== RELATED BOOKS ===== */
 async function loadRelatedBooks() {
     var book = state.book;
     var subjects = Array.isArray(book.subjects) ? book.subjects : [];
@@ -565,7 +599,7 @@ async function loadRelatedBooks() {
         var url = new URL(CONFIG.SEARCH_URL);
         url.searchParams.set("q", query);
         url.searchParams.set("limit", String(CONFIG.RELATED_LIMIT + 5));
-        url.searchParams.set("fields", "key,title,author_name,cover_i,first_publish_year");
+        url.searchParams.set("fields", "key,title,author_name,cover_i,first_publish_year,ebook_access");
         var response = await fetch(url.toString());
         if (!response.ok) throw new Error("Related books unavailable");
         var data = await response.json();
@@ -598,8 +632,10 @@ function createRelatedCard(book) {
     var author = Array.isArray(book.author_name) && book.author_name.length ? book.author_name.slice(0,1).join(", ") : "Unknown Author";
     var cover = book.cover_i ? CONFIG.COVER_URL + "/" + book.cover_i + "-M.jpg" : "";
     var coverHTML = cover ? '<img src="' + escapeHTML(cover) + '" alt="' + escapeHTML(title) + '" loading="lazy">' : '<div style="height:100%;display:grid;place-items:center;font-size:35px;">📚</div>';
+    var badge = '';
+    if (book.ebook_access === "public") badge = '<span class="related-free-badge">🟢 Free</span>';
     return '<article class="related-card" data-related-key="' + escapeHTML(book.key || "") + '">' +
-        '<div class="related-cover">' + coverHTML + '</div>' +
+        '<div class="related-cover">' + coverHTML + badge + '</div>' +
         '<div class="related-content">' +
         '<h3 class="related-title">' + escapeHTML(title) + '</h3>' +
         '<p class="related-author">' + escapeHTML(author) + '</p>' +
@@ -607,9 +643,7 @@ function createRelatedCard(book) {
         '</article>';
 }
 
-/* =========================================================
-   NAVIGATION
-========================================================= */
+/* ===== NAVIGATION ===== */
 function initializeNavigation() {
     if (elements.backButton) {
         elements.backButton.addEventListener("click", function() {
@@ -627,9 +661,6 @@ function initializeNavigation() {
     }
 }
 
-/* =========================================================
-   LOADING / ERROR
-========================================================= */
 function showLoading() {
     elements.loadingSection.style.display = "flex";
     elements.detailsSection.classList.remove("show");
@@ -644,9 +675,6 @@ function showError(message) {
     elements.errorSection.classList.add("show");
 }
 
-/* =========================================================
-   TOAST
-========================================================= */
 function showToast(message, icon) {
     icon = icon || "✓";
     if (!elements.toast) return;
@@ -659,12 +687,8 @@ function showToast(message, icon) {
     }, 2600);
 }
 
-/* =========================================================
-   HELPERS
-========================================================= */
 function cleanText(v) { return String(v || "").replace(/\s+/g, " ").trim(); }
 function normalizeText(v) { return cleanText(v).toLowerCase(); }
 function escapeHTML(v) {
     return String(v || "").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#039;");
 }
-
