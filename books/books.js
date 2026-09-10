@@ -1,6 +1,6 @@
 /* =========================================================
    BOOK LIBRARY — BOOKS PAGE JAVASCRIPT
-   Version 3.0 (Free Book Detection)
+   Version 4.0 (Free Filter + Language Filter)
 ========================================================= */
 
 "use strict";
@@ -18,6 +18,14 @@ const CONFIG = {
     SEARCH_PAGE: "../search/search.html"
 };
 
+// ✅ Language code → Name map
+const LANGUAGE_NAMES = {
+    eng: "English", urd: "Urdu", ara: "Arabic", hin: "Hindi",
+    fre: "French", ger: "German", spa: "Spanish", ita: "Italian",
+    por: "Portuguese", rus: "Russian", chi: "Chinese", jpn: "Japanese",
+    tur: "Turkish", per: "Persian"
+};
+
 const state = {
     query: "",
     page: 1,
@@ -25,6 +33,7 @@ const state = {
     books: [],
     sort: "relevance",
     filter: "all",
+    language: "all",
     loading: false
 };
 
@@ -47,7 +56,9 @@ const elements = {
     headerSearchBtn: document.getElementById("headerSearchBtn"),
     toast: document.getElementById("toast"),
     toastMessage: document.getElementById("toastMessage"),
-    toastIcon: document.getElementById("toastIcon")
+    toastIcon: document.getElementById("toastIcon"),
+    languageSelect: document.getElementById("languageSelect"),
+    languageNotice: document.getElementById("languageNotice")
 };
 
 let toastTimer = null;
@@ -63,13 +74,14 @@ document.addEventListener("DOMContentLoaded", function () {
     initializeLoadMore();
     initializeReset();
     initializeRandomBook();
+    initializeLanguage();
     setupThemeSync();
     loadInitialBooks();
 });
 
 /* ===== THEME SYNC ===== */
 function setupThemeSync() {
-    window.addEventListener("storage", function(e) {
+    window.addEventListener("storage", function (e) {
         if (e.key === CONFIG.THEME_KEY) {
             const newTheme = e.newValue;
             if (newTheme === "dark") {
@@ -86,7 +98,7 @@ function setupThemeSync() {
 /* ===== HEADER ===== */
 function initializeHeaderEvents() {
     if (elements.headerSearchBtn) {
-        elements.headerSearchBtn.addEventListener("click", function() {
+        elements.headerSearchBtn.addEventListener("click", function () {
             window.location.href = CONFIG.SEARCH_PAGE;
         });
     }
@@ -96,14 +108,16 @@ function initializeTheme() {
     const saved = localStorage.getItem(CONFIG.THEME_KEY);
     if (saved === "dark") {
         document.body.classList.add("dark");
-        elements.themeToggle.textContent = "☀️";
+        if (elements.themeToggle) elements.themeToggle.textContent = "☀️";
     }
-    elements.themeToggle.addEventListener("click", function () {
-        document.body.classList.toggle("dark");
-        const dark = document.body.classList.contains("dark");
-        localStorage.setItem(CONFIG.THEME_KEY, dark ? "dark" : "light");
-        this.textContent = dark ? "☀️" : "🌙";
-    });
+    if (elements.themeToggle) {
+        elements.themeToggle.addEventListener("click", function () {
+            document.body.classList.toggle("dark");
+            const dark = document.body.classList.contains("dark");
+            localStorage.setItem(CONFIG.THEME_KEY, dark ? "dark" : "light");
+            this.textContent = dark ? "☀️" : "🌙";
+        });
+    }
 }
 
 function initializeMobileMenu() {
@@ -136,7 +150,7 @@ function loadInitialBooks() {
     const urlQuery = getQueryFromURL();
     if (urlQuery) {
         state.query = urlQuery;
-        elements.searchInput.value = urlQuery;
+        if (elements.searchInput) elements.searchInput.value = urlQuery;
         searchBooks(true);
         return;
     }
@@ -145,6 +159,7 @@ function loadInitialBooks() {
 }
 
 function initializeSearch() {
+    if (!elements.searchForm) return;
     elements.searchForm.addEventListener("submit", function (e) {
         e.preventDefault();
         const query = elements.searchInput.value.trim();
@@ -159,21 +174,42 @@ function initializeSearch() {
     });
 }
 
-/* ===== SEARCH (with ebook_access) ===== */
+/* ===== SEARCH ===== */
 function searchBooks(reset = false) {
     if (state.loading) return;
     state.loading = true;
     showLoading();
+
     if (reset) {
         state.page = 1;
         state.books = [];
-        elements.booksGrid.innerHTML = "";
+        if (elements.booksGrid) elements.booksGrid.innerHTML = "";
+        hideLanguageNotice();
     }
+
     const url = new URL(CONFIG.API_URL);
     url.searchParams.set("q", state.query);
     url.searchParams.set("page", state.page);
     url.searchParams.set("limit", CONFIG.PAGE_SIZE);
-    url.searchParams.set("fields", "key,title,author_name,first_publish_year,cover_i,edition_key,publisher,subject,ia,ebook_access,public_scan_b");
+    url.searchParams.set(
+        "fields",
+        "key,title,author_name,first_publish_year,cover_i,edition_key,publisher,subject,ia,ebook_access,public_scan_b,language"
+    );
+
+    // ✅ Free Only → API level filter
+    if (state.filter === "free") {
+        url.searchParams.set("has_fulltext", "true");
+    } else if (state.filter !== "all") {
+        const keyword = getFilterKeyword(state.filter);
+        if (keyword) {
+            url.searchParams.set("subject", keyword);
+        }
+    }
+
+    // ✅ Language filter
+    if (state.language && state.language !== "all") {
+        url.searchParams.set("language", state.language);
+    }
 
     fetch(url.toString())
         .then(response => {
@@ -189,6 +225,7 @@ function searchBooks(reset = false) {
             renderBooks();
             updateResultsInfo();
             updateLoadMore();
+            updateLanguageNotice();
         })
         .catch(error => {
             console.error("Book search error:", error);
@@ -210,6 +247,7 @@ function renderBooks() {
     let books = [...state.books];
     books = applyFilter(books);
     books = applySort(books);
+
     if (!books.length) {
         showEmpty();
         return;
@@ -239,6 +277,15 @@ function createBookCard(book, index) {
     const delay = Math.min(index * 0.025, 0.5);
     const badge = getAccessBadge(book);
 
+    // ✅ Language display
+    let langText = "";
+    if (Array.isArray(book.language) && book.language.length) {
+        const langs = book.language
+            .map(l => LANGUAGE_NAMES[String(l).replace("/languages/", "")] || "")
+            .filter(Boolean);
+        langText = langs.slice(0, 2).join(", ");
+    }
+
     return `
         <article class="book-card" data-key="${escapeHTML(key)}" style="animation-delay:${delay}s">
             <div class="book-cover">
@@ -250,7 +297,7 @@ function createBookCard(book, index) {
                 <h3 class="book-title">${escapeHTML(title)}</h3>
                 <p class="book-author">${escapeHTML(author)}</p>
                 <div class="book-meta">
-                    <span class="book-year">${escapeHTML(String(year))}</span>
+                    <span class="book-year">${escapeHTML(String(year))}${langText ? " · " + escapeHTML(langText) : ""}</span>
                     <button class="book-details-btn" data-details="${escapeHTML(key)}">Details →</button>
                 </div>
             </div>
@@ -260,7 +307,7 @@ function createBookCard(book, index) {
 
 function getAuthor(book) {
     if (Array.isArray(book.author_name) && book.author_name.length) {
-        return book.author_name.slice(0,2).join(", ");
+        return book.author_name.slice(0, 2).join(", ");
     }
     return "Unknown Author";
 }
@@ -273,7 +320,7 @@ function getCover(book) {
 }
 
 function createCoverFallback(title) {
-    const safeTitle = String(title).slice(0,30);
+    const safeTitle = String(title).slice(0, 30);
     const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="500" height="740" viewBox="0 0 500 740">
         <rect width="500" height="740" fill="#eceef5" />
         <rect x="45" y="45" width="410" height="650" rx="25" fill="#ffffff" />
@@ -320,9 +367,12 @@ function openBookDetails(key) {
 
 /* ===== FAVORITES ===== */
 function getFavorites() {
-    try { return JSON.parse(localStorage.getItem(CONFIG.FAVORITES_KEY)) || []; } catch { return []; }
+    try { return JSON.parse(localStorage.getItem(CONFIG.FAVORITES_KEY)) || []; }
+    catch { return []; }
 }
-function saveFavorites(fav) { localStorage.setItem(CONFIG.FAVORITES_KEY, JSON.stringify(fav)); }
+function saveFavorites(fav) {
+    localStorage.setItem(CONFIG.FAVORITES_KEY, JSON.stringify(fav));
+}
 function isFavorite(key) {
     const norm = normalizeKey(key);
     return getFavorites().some(item => normalizeKey(item.key || item) === norm);
@@ -358,44 +408,47 @@ function saveRecentBook(key) {
     try { recent = JSON.parse(localStorage.getItem("bookLibraryRecent")) || []; } catch {}
     recent = recent.filter(item => item.key !== key);
     recent.unshift({ key, viewedAt: Date.now() });
-    recent = recent.slice(0,20);
+    recent = recent.slice(0, 20);
     localStorage.setItem("bookLibraryRecent", JSON.stringify(recent));
 }
 
-/* ===== FILTERS & SORT ===== */
+/* ===== FILTERS ===== */
 function initializeFilters() {
     document.querySelectorAll(".filter-btn").forEach(btn => {
         btn.addEventListener("click", function () {
             document.querySelectorAll(".filter-btn").forEach(b => b.classList.remove("active"));
             this.classList.add("active");
             state.filter = this.dataset.filter;
-            renderBooks();
+            state.page = 1;
+            searchBooks(true);
         });
     });
 }
 
 function applyFilter(books) {
-    if (state.filter === "all") return books;
+    // Free Only — client-side safety filter
     if (state.filter === "free") {
-        return books.filter(function(b) {
+        return books.filter(function (b) {
             return b.ebook_access === "public" || b.public_scan_b === true;
         });
     }
-    const keyword = getFilterKeyword(state.filter);
-    if (!keyword) return books;
-    return books.filter(book => {
-        const subjects = Array.isArray(book.subject) ? book.subject.join(" ") : "";
-        const text = (subjects + " " + (book.title || "") + " " + getAuthor(book)).toLowerCase();
-        return text.includes(keyword.toLowerCase());
-    });
+    return books;
 }
 
 function getFilterKeyword(filter) {
-    const map = { fiction:"fiction", history:"history", science:"science", religion:"religion", technology:"technology" };
+    const map = {
+        fiction: "fiction",
+        history: "history",
+        science: "science",
+        religion: "religion",
+        technology: "technology"
+    };
     return map[filter] || "";
 }
 
+/* ===== SORT ===== */
 function initializeSorting() {
+    if (!elements.sortSelect) return;
     elements.sortSelect.addEventListener("change", function () {
         state.sort = this.value;
         renderBooks();
@@ -404,15 +457,87 @@ function initializeSorting() {
 
 function applySort(books) {
     switch (state.sort) {
-        case "new": return books.sort((a,b) => (b.first_publish_year || 0) - (a.first_publish_year || 0));
-        case "old": return books.sort((a,b) => (a.first_publish_year || 9999) - (b.first_publish_year || 9999));
-        case "title": return books.sort((a,b) => String(a.title || "").localeCompare(String(b.title || "")));
-        default: return books;
+        case "new":
+            return books.sort((a, b) => (b.first_publish_year || 0) - (a.first_publish_year || 0));
+        case "old":
+            return books.sort((a, b) => (a.first_publish_year || 9999) - (b.first_publish_year || 9999));
+        case "title":
+            return books.sort((a, b) => String(a.title || "").localeCompare(String(b.title || "")));
+        default:
+            return books;
+    }
+}
+
+/* ===== LANGUAGE ===== */
+function initializeLanguage() {
+    if (!elements.languageSelect) return;
+    elements.languageSelect.addEventListener("change", function () {
+        state.language = this.value;
+        state.page = 1;
+        searchBooks(true);
+    });
+}
+
+function updateLanguageNotice() {
+    const notice = elements.languageNotice;
+    if (!notice) return;
+
+    // Specific language selected
+    if (state.language && state.language !== "all") {
+        const langName = LANGUAGE_NAMES[state.language] || state.language;
+
+        if (state.books.length === 0) {
+            notice.className = "language-notice show warning";
+            notice.innerHTML =
+                `⚠️ <strong>${langName}</strong> mein koi book nahi mili is search ke liye.<br>` +
+                `Doosri zuban try karo ya <strong>"All Languages"</strong> select karo.`;
+        } else {
+            notice.className = "language-notice show success";
+            notice.innerHTML =
+                `✅ <strong>${state.books.length}</strong> book(s) mili <strong>${langName}</strong> mein.`;
+        }
+        return;
+    }
+
+    // All languages — show what's available
+    if (state.books.length > 0) {
+        const availableLangs = getAvailableLanguages(state.books);
+        if (availableLangs.length > 1) {
+            const langList = availableLangs
+                .map(code => LANGUAGE_NAMES[code] || code)
+                .join(", ");
+            notice.className = "language-notice show info";
+            notice.innerHTML =
+                `🌐 Ye books in zubano mein available hain: <strong>${langList}</strong>`;
+        } else {
+            hideLanguageNotice();
+        }
+    }
+}
+
+function getAvailableLanguages(books) {
+    const langs = new Set();
+    books.forEach(book => {
+        if (Array.isArray(book.language)) {
+            book.language.forEach(l => {
+                const code = String(l).replace("/languages/", "").trim();
+                if (code) langs.add(code);
+            });
+        }
+    });
+    return Array.from(langs);
+}
+
+function hideLanguageNotice() {
+    if (elements.languageNotice) {
+        elements.languageNotice.className = "language-notice";
+        elements.languageNotice.innerHTML = "";
     }
 }
 
 /* ===== LOAD MORE ===== */
 function initializeLoadMore() {
+    if (!elements.loadMoreButton) return;
     elements.loadMoreButton.addEventListener("click", function () {
         if (state.loading) return;
         state.page++;
@@ -427,7 +552,8 @@ function updateLoadMore() {
     } else {
         elements.loadMoreButton.classList.remove("hidden");
     }
-    elements.paginationInfo.textContent = `Showing ${loaded.toLocaleString()} books from the available results`;
+    elements.paginationInfo.textContent =
+        `Showing ${loaded.toLocaleString()} books from the available results`;
 }
 
 /* ===== QUICK SEARCH ===== */
@@ -435,7 +561,7 @@ function initializeQuickSearch() {
     document.querySelectorAll("[data-search]").forEach(btn => {
         btn.addEventListener("click", function () {
             const query = this.dataset.search;
-            elements.searchInput.value = query;
+            if (elements.searchInput) elements.searchInput.value = query;
             state.query = query;
             state.page = 1;
             updateURL(query);
@@ -446,10 +572,17 @@ function initializeQuickSearch() {
 
 /* ===== RESET ===== */
 function initializeReset() {
+    if (!elements.resetSearch) return;
     elements.resetSearch.addEventListener("click", function () {
-        elements.searchInput.value = "";
+        if (elements.searchInput) elements.searchInput.value = "";
         state.query = CONFIG.DEFAULT_QUERY;
         state.page = 1;
+        state.filter = "all";
+        state.language = "all";
+        document.querySelectorAll(".filter-btn").forEach(b => b.classList.remove("active"));
+        const allBtn = document.querySelector('.filter-btn[data-filter="all"]');
+        if (allBtn) allBtn.classList.add("active");
+        if (elements.languageSelect) elements.languageSelect.value = "all";
         updateURL(CONFIG.DEFAULT_QUERY);
         searchBooks(true);
     });
@@ -457,10 +590,15 @@ function initializeReset() {
 
 /* ===== RANDOM BOOK ===== */
 function initializeRandomBook() {
+    if (!elements.randomBookButton) return;
     elements.randomBookButton.addEventListener("click", function () {
-        const topics = ["classic literature","adventure","science","history","philosophy","fiction","technology","poetry","islamic books","biography"];
+        const topics = [
+            "classic literature", "adventure", "science", "history",
+            "philosophy", "fiction", "technology", "poetry",
+            "islamic books", "biography"
+        ];
         const random = topics[Math.floor(Math.random() * topics.length)];
-        elements.searchInput.value = random;
+        if (elements.searchInput) elements.searchInput.value = random;
         state.query = random;
         state.page = 1;
         updateURL(random);
@@ -470,6 +608,7 @@ function initializeRandomBook() {
 
 /* ===== RESULTS INFO ===== */
 function updateResultsInfo() {
+    if (!elements.resultsTitle || !elements.resultsInfo) return;
     if (state.query) {
         elements.resultsTitle.textContent = `Results for "${state.query}"`;
         elements.resultsInfo.textContent = `${state.total.toLocaleString()} books found`;
@@ -480,19 +619,24 @@ function updateResultsInfo() {
 
 /* ===== LOADING / EMPTY ===== */
 function showLoading() {
-    elements.loadingState.classList.add("show");
-    elements.emptyState.classList.remove("show");
+    if (elements.loadingState) elements.loadingState.classList.add("show");
+    if (elements.emptyState) elements.emptyState.classList.remove("show");
 }
-function hideLoading() { elements.loadingState.classList.remove("show"); }
+function hideLoading() {
+    if (elements.loadingState) elements.loadingState.classList.remove("show");
+}
 function showEmpty() {
-    elements.emptyState.classList.add("show");
-    elements.booksGrid.innerHTML = "";
-    elements.loadMoreButton.classList.add("hidden");
+    if (elements.emptyState) elements.emptyState.classList.add("show");
+    if (elements.booksGrid) elements.booksGrid.innerHTML = "";
+    if (elements.loadMoreButton) elements.loadMoreButton.classList.add("hidden");
 }
-function hideEmpty() { elements.emptyState.classList.remove("show"); }
+function hideEmpty() {
+    if (elements.emptyState) elements.emptyState.classList.remove("show");
+}
 
 /* ===== TOAST ===== */
 function showToast(message, icon = "✓") {
+    if (!elements.toast) return;
     elements.toastMessage.textContent = message;
     elements.toastIcon.textContent = icon;
     elements.toast.classList.add("show");
@@ -501,5 +645,14 @@ function showToast(message, icon = "✓") {
 }
 
 /* ===== HELPERS ===== */
-function cleanText(text) { return String(text).replace(/\s+/g, " ").trim(); }
-function escapeHTML(v) { return String(v).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#039;"); }
+function cleanText(text) {
+    return String(text).replace(/\s+/g, " ").trim();
+}
+function escapeHTML(v) {
+    return String(v)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+}

@@ -1,6 +1,6 @@
 /* =========================================================
    BOOK LIBRARY — BOOKS PAGE CSS
-   Version 3.0 (Free Book Detection)
+   Version 4.0 (Free Filter + Language Filter)
 ========================================================= */
 
 * {
@@ -13,25 +13,18 @@
     --bg: #f6f7fb;
     --surface: #ffffff;
     --surface-2: #f1f3f8;
-
     --text: #182033;
     --text-soft: #687086;
     --text-light: #9299aa;
-
     --primary: #5b5ce2;
     --primary-dark: #4748c7;
-
     --border: #e5e7ef;
-
     --shadow-sm: 0 4px 15px rgba(24, 32, 51, 0.06);
     --shadow-md: 0 12px 35px rgba(24, 32, 51, 0.10);
-
     --radius-sm: 10px;
     --radius-md: 16px;
     --radius-lg: 24px;
-
     --container: 1180px;
-
     --transition: 0.25s ease;
 }
 
@@ -39,13 +32,10 @@ body.dark {
     --bg: #10121b;
     --surface: #181b27;
     --surface-2: #222633;
-
     --text: #f5f6fb;
     --text-soft: #aeb4c7;
     --text-light: #777f95;
-
     --border: #2c3141;
-
     --shadow-sm: 0 4px 15px rgba(0, 0, 0, 0.2);
     --shadow-md: 0 15px 40px rgba(0, 0, 0, 0.3);
 }
@@ -263,7 +253,7 @@ a { text-decoration: none; color: inherit; }
     display: flex;
     flex-wrap: wrap;
     gap: 9px;
-    margin-bottom: 30px;
+    margin-bottom: 20px;
 }
 .filter-btn {
     border: 1px solid var(--border);
@@ -281,6 +271,75 @@ a { text-decoration: none; color: inherit; }
     color: white;
     border-color: var(--primary);
 }
+
+/* ===== LANGUAGE BOX (NEW) ===== */
+.language-box {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 22px;
+    padding: 14px 18px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-sm);
+}
+.language-box label {
+    font-weight: 700;
+    font-size: 14px;
+    color: var(--text);
+    white-space: nowrap;
+}
+.language-box select {
+    flex: 1;
+    max-width: 340px;
+    border: 1px solid var(--border);
+    background: var(--surface-2);
+    color: var(--text);
+    padding: 11px 14px;
+    border-radius: 10px;
+    outline: none;
+    cursor: pointer;
+    font-weight: 600;
+    transition: var(--transition);
+}
+.language-box select:hover,
+.language-box select:focus {
+    border-color: var(--primary);
+}
+
+/* ===== LANGUAGE NOTICE (NEW) ===== */
+.language-notice {
+    display: none;
+    padding: 14px 18px;
+    margin-bottom: 22px;
+    border-radius: var(--radius-md);
+    font-size: 14px;
+    font-weight: 600;
+    line-height: 1.6;
+    border: 1px solid transparent;
+}
+.language-notice.show { display: block; }
+.language-notice.info {
+    background: rgba(91, 92, 226, 0.08);
+    border-color: rgba(91, 92, 226, 0.2);
+    color: var(--primary);
+}
+.language-notice.warning {
+    background: rgba(217, 119, 6, 0.1);
+    border-color: rgba(217, 119, 6, 0.3);
+    color: #b45309;
+}
+body.dark .language-notice.warning { color: #fbbf24; }
+.language-notice.success {
+    background: rgba(22, 163, 74, 0.1);
+    border-color: rgba(22, 163, 74, 0.3);
+    color: #15803d;
+}
+body.dark .language-notice.success { color: #4ade80; }
+.language-notice strong { font-weight: 800; }
+
+/* ===== GRID ===== */
 .books-grid {
     display: grid;
     grid-template-columns: repeat(5, minmax(0, 1fr));
@@ -315,7 +374,7 @@ a { text-decoration: none; color: inherit; }
 }
 .book-card:hover .book-cover img { transform: scale(1.04); }
 
-/* ===== ACCESS BADGE (NEW) ===== */
+/* ===== ACCESS BADGE ===== */
 .access-badge {
     position: absolute;
     top: 10px;
@@ -381,6 +440,10 @@ a { text-decoration: none; color: inherit; }
 .book-year {
     color: var(--text-light);
     font-size: 11px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 60%;
 }
 .book-details-btn {
     border: none;
@@ -605,6 +668,13 @@ a { text-decoration: none; color: inherit; }
     .footer-grid { grid-template-columns: 1fr 1fr; }
     .footer-brand { grid-column: 1 / -1; }
     .footer-bottom { flex-direction: column; }
+
+    .language-box {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 10px;
+    }
+    .language-box select { max-width: 100%; }
 
     .mobile-bottom-nav {
         position: fixed;

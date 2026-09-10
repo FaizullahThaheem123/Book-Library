@@ -1,6 +1,6 @@
 /* =========================================================
    BOOK LIBRARY — BOOK DETAILS JAVASCRIPT
-   Version 4.0 (Free Book Detection)
+   Version 9.0 (Fixed Reader — No Loading Overlay)
 ========================================================= */
 
 "use strict";
@@ -13,6 +13,7 @@ const CONFIG = {
     FAVORITES_KEY: "bookLibraryFavorites",
     MY_BOOKS_KEY: "bookLibraryMyBooks",
     THEME_KEY: "bookLibraryTheme",
+    READING_PROGRESS_KEY: "bookLibraryReadingProgress",
     SEARCH_PAGE: "../search/search.html",
     RELATED_LIMIT: 5
 };
@@ -25,7 +26,8 @@ const state = {
     myBookStatus: "want",
     readable: false,
     ia: null,
-    ebookAccess: "no_ebook"
+    ebookAccess: "no_ebook",
+    fullscreen: false
 };
 
 const elements = {
@@ -62,12 +64,22 @@ const elements = {
     toast: document.getElementById("toast"),
     toastIcon: document.getElementById("toastIcon"),
     toastMessage: document.getElementById("toastMessage"),
+    accessMessage: document.getElementById("accessMessage"),
     readerContainer: document.getElementById("readerContainer"),
     readerIframe: document.getElementById("readerIframe"),
-    accessMessage: document.getElementById("accessMessage")
+    readerToolbarTitle: document.getElementById("readerToolbarTitle"),
+    readerFullscreenBtn: document.getElementById("readerFullscreenBtn"),
+    readerCloseBtn: document.getElementById("readerCloseBtn"),
+    continuePrompt: document.getElementById("continuePrompt"),
+    continueTitle: document.getElementById("continueTitle"),
+    continueText: document.getElementById("continueText"),
+    continueReadingBtn: document.getElementById("continueReadingBtn"),
+    restartReadingBtn: document.getElementById("restartReadingBtn"),
+    cancelReadingBtn: document.getElementById("cancelReadingBtn")
 };
 
 let toastTimer = null;
+let readingSessionStart = null;
 
 document.addEventListener("DOMContentLoaded", function () {
     initializeHeaderEvents();
@@ -77,12 +89,14 @@ document.addEventListener("DOMContentLoaded", function () {
     initializeFavorite();
     initializeMyBooks();
     initializeActions();
+    initializeReader();
     setupThemeSync();
     loadBook();
 });
 
+/* ===== THEME SYNC ===== */
 function setupThemeSync() {
-    window.addEventListener("storage", function(e) {
+    window.addEventListener("storage", function (e) {
         if (e.key === CONFIG.THEME_KEY) {
             const newTheme = e.newValue;
             if (newTheme === "dark") {
@@ -153,7 +167,7 @@ function normalizeKey(key) {
 function getFirstIA(value) {
     if (!value) return null;
     if (Array.isArray(value)) {
-        var first = value.find(function(item) { return typeof item === "string" && item.trim(); });
+        var first = value.find(function (item) { return typeof item === "string" && item.trim(); });
         return first ? first.trim() : null;
     }
     if (typeof value === "string" && value.trim()) return value.trim();
@@ -201,7 +215,7 @@ async function loadBook() {
 async function enrichBookData() {
     var book = state.book;
     if (Array.isArray(book.authors) && book.authors.length) {
-        var authors = await Promise.all(book.authors.slice(0,3).map(function(item) { return getAuthorName(item); }));
+        var authors = await Promise.all(book.authors.slice(0, 3).map(function (item) { return getAuthorName(item); }));
         book._authors = authors.filter(Boolean);
     }
     try {
@@ -213,7 +227,7 @@ async function enrichBookData() {
         if (response.ok) {
             var data = await response.json();
             if (data.docs && data.docs.length) {
-                var match = data.docs.find(function(item) { return normalizeText(item.title) === normalizeText(book.title); });
+                var match = data.docs.find(function (item) { return normalizeText(item.title) === normalizeText(book.title); });
                 if (!match) match = data.docs[0];
                 book._edition = match;
                 if (!state.ia) {
@@ -239,7 +253,6 @@ async function getAuthorName(authorRef) {
     } catch { return ""; }
 }
 
-/* ===== CHECK FREE ACCESS ===== */
 async function checkFreeAccess() {
     state.ebookAccess = state.ebookAccess || "no_ebook";
     state.readable = false;
@@ -262,11 +275,11 @@ async function checkFreeAccess() {
         var restricted = String(meta["access-restricted-item"] || "").toLowerCase();
         var collection = (meta.collection || "").toString().toLowerCase();
         var freeCollections = ["opensource", "americana", "toronto", "gutenberg", "cdl", "library_of_congress"];
-        var isFreeCollection = freeCollections.some(function(c) { return collection.indexOf(c) !== -1; });
+        var isFreeCollection = freeCollections.some(function (c) { return collection.indexOf(c) !== -1; });
 
         if (restricted === "false" || restricted === "" || isFreeCollection) {
             var files = data.files || [];
-            var hasReadableFile = files.some(function(f) {
+            var hasReadableFile = files.some(function (f) {
                 var name = (f.name || "").toLowerCase();
                 return name.endsWith(".pdf") || name.endsWith(".epub") || name.endsWith(".txt");
             });
@@ -306,9 +319,6 @@ function renderBook() {
 
 function renderReadButton() {
     var readBtn = elements.readButton;
-    var readerContainer = elements.readerContainer;
-    var readerIframe = elements.readerIframe;
-    var accessMsg = elements.accessMessage;
     if (!readBtn) return;
 
     if (state.ebookAccess === "public" && state.ia) {
@@ -317,15 +327,13 @@ function renderReadButton() {
         readBtn.style.cursor = 'pointer';
         readBtn.style.background = '#16a34a';
         readBtn.disabled = false;
-        readBtn.onclick = function() {
-            var embedUrl = "https://archive.org/embed/" + encodeURIComponent(state.ia);
-            readerIframe.src = embedUrl;
-            readerContainer.style.display = 'block';
-            readerContainer.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        readBtn.onclick = function () {
+            handleReadClick();
         };
-        if (accessMsg) {
-            accessMsg.style.display = 'flex';
-            accessMsg.querySelector('p').innerHTML = '<strong>✅ Free to Read:</strong> This book is 100% free. Click "Read Free" to start reading now.';
+        if (elements.accessMessage) {
+            elements.accessMessage.style.display = 'flex';
+            elements.accessMessage.querySelector('p').innerHTML =
+                '<strong>✅ Free to Read:</strong> This book is 100% free. Click "Read Free" to open the reader below.';
         }
         return;
     }
@@ -336,19 +344,18 @@ function renderReadButton() {
         readBtn.style.cursor = 'pointer';
         readBtn.style.background = '#d97706';
         readBtn.disabled = false;
-        readBtn.onclick = function() {
+        readBtn.onclick = function () {
             if (state.ia) {
                 window.open("https://archive.org/details/" + encodeURIComponent(state.ia), "_blank", "noopener,noreferrer");
             } else {
                 showToast('Please visit Open Library to borrow this book.', '📚');
             }
         };
-        if (accessMsg) {
-            accessMsg.style.display = 'flex';
-            accessMsg.querySelector('p').innerHTML = '<strong>⚠️ Borrow Required:</strong> This book is not free. You need to borrow it from Open Library (free account required).';
+        if (elements.accessMessage) {
+            elements.accessMessage.style.display = 'flex';
+            elements.accessMessage.querySelector('p').innerHTML =
+                '<strong>⚠️ Borrow Required:</strong> This book is not free. You need to borrow it from Open Library.';
         }
-        if (readerContainer) readerContainer.style.display = 'none';
-        if (readerIframe) readerIframe.src = '';
         return;
     }
 
@@ -357,30 +364,32 @@ function renderReadButton() {
     readBtn.style.cursor = 'not-allowed';
     readBtn.style.background = '#6b7280';
     readBtn.disabled = true;
-    readBtn.onclick = function() {
+    readBtn.onclick = function () {
         showToast('This book is not available for online reading.', '📚');
     };
-    if (accessMsg) {
-        accessMsg.style.display = 'flex';
-        accessMsg.querySelector('p').innerHTML = '<strong>❌ Not Available:</strong> This book is not available for online reading. You can still add it to your library.';
+    if (elements.accessMessage) {
+        elements.accessMessage.style.display = 'flex';
+        elements.accessMessage.querySelector('p').innerHTML =
+            '<strong>❌ Not Available:</strong> This book is not available for online reading.';
     }
-    if (readerContainer) readerContainer.style.display = 'none';
-    if (readerIframe) readerIframe.src = '';
 }
 
 function getDisplayedAuthor(book, edition) {
     if (Array.isArray(book._authors) && book._authors.length) return book._authors.join(", ");
-    if (Array.isArray(edition.author_name) && edition.author_name.length) return edition.author_name.slice(0,3).join(", ");
+    if (Array.isArray(edition.author_name) && edition.author_name.length) return edition.author_name.slice(0, 3).join(", ");
     return "Unknown Author";
 }
 
 function getYear(book, edition) { return book.first_publish_date || edition.first_publish_year || "—"; }
+
 function getPublisher(book, edition) {
-    if (Array.isArray(edition.publisher) && edition.publisher.length) return edition.publisher.slice(0,2).join(", ");
-    if (Array.isArray(book.publishers) && book.publishers.length) return book.publishers.slice(0,2).join(", ");
+    if (Array.isArray(edition.publisher) && edition.publisher.length) return edition.publisher.slice(0, 2).join(", ");
+    if (Array.isArray(book.publishers) && book.publishers.length) return book.publishers.slice(0, 2).join(", ");
     return "—";
 }
+
 function getPages(book, edition) { return edition.number_of_pages_median || book.number_of_pages || "—"; }
+
 function getLanguage(book, edition) {
     if (Array.isArray(edition.language) && edition.language.length) return formatLanguage(edition.language[0]);
     if (Array.isArray(book.languages) && book.languages.length) {
@@ -389,9 +398,10 @@ function getLanguage(book, edition) {
     }
     return "—";
 }
+
 function formatLanguage(code) {
     var codeStr = String(code).split("/").pop().toLowerCase();
-    var map = { eng:"English", urd:"Urdu", ara:"Arabic", fas:"Persian", hin:"Hindi", spa:"Spanish", fra:"French", deu:"German", ita:"Italian", por:"Portuguese", rus:"Russian", tur:"Turkish", ben:"Bengali", ind:"Indonesian", jpn:"Japanese", kor:"Korean", chi:"Chinese" };
+    var map = { eng: "English", urd: "Urdu", ara: "Arabic", fas: "Persian", hin: "Hindi", spa: "Spanish", fra: "French", deu: "German", ita: "Italian", por: "Portuguese", rus: "Russian", tur: "Turkish", ben: "Bengali", ind: "Indonesian", jpn: "Japanese", kor: "Korean", chi: "Chinese" };
     return map[codeStr] || codeStr.toUpperCase();
 }
 
@@ -407,7 +417,7 @@ function renderCover(book, edition, title) {
     elements.bookCover.alt = title;
     elements.bookCover.style.display = "block";
     elements.coverFallback.classList.remove("show");
-    elements.bookCover.onerror = function() {
+    elements.bookCover.onerror = function () {
         this.style.display = "none";
         elements.coverFallback.classList.add("show");
     };
@@ -428,11 +438,11 @@ function renderSubjects(book) {
     }
     var unique = [];
     var seen = {};
-    subjects.forEach(function(s) {
+    subjects.forEach(function (s) {
         var cleaned = cleanText(s);
         if (cleaned && !seen[cleaned]) { seen[cleaned] = true; unique.push(cleaned); }
     });
-    elements.subjectList.innerHTML = unique.slice(0,15).map(function(s) {
+    elements.subjectList.innerHTML = unique.slice(0, 15).map(function (s) {
         return '<span class="subject-tag">' + escapeHTML(s) + '</span>';
     }).join("");
 }
@@ -449,7 +459,7 @@ function toggleFavorite() {
     if (!state.book) return;
     var favorites = getFavorites();
     var normKey = normalizeKey(state.key);
-    var index = favorites.findIndex(function(item) { return normalizeKey(item.key || item) === normKey; });
+    var index = favorites.findIndex(function (item) { return normalizeKey(item.key || item) === normKey; });
     if (index !== -1) {
         favorites.splice(index, 1);
         state.favorite = false;
@@ -471,7 +481,7 @@ function toggleFavorite() {
 }
 
 function updateFavoriteState() {
-    state.favorite = getFavorites().some(function(item) { return normalizeKey(item.key || item) === normalizeKey(state.key); });
+    state.favorite = getFavorites().some(function (item) { return normalizeKey(item.key || item) === normalizeKey(state.key); });
     if (state.favorite) {
         elements.favoriteButton.classList.add("active");
         elements.favoriteIcon.textContent = "♥";
@@ -493,7 +503,7 @@ function initializeMyBooks() {
 
 function updateMyBooksState() {
     var books = getMyBooks();
-    var existing = books.find(function(item) { return normalizeKey(item.key || item) === normalizeKey(state.key); });
+    var existing = books.find(function (item) { return normalizeKey(item.key || item) === normalizeKey(state.key); });
     if (existing) {
         state.inMyBooks = true;
         state.myBookStatus = normalizeStatus(existing.status);
@@ -521,7 +531,7 @@ function toggleMyBook() {
     if (!state.book) return;
     var books = getMyBooks();
     var normKey = normalizeKey(state.key);
-    var existingIndex = books.findIndex(function(item) { return normalizeKey(item.key || item) === normKey; });
+    var existingIndex = books.findIndex(function (item) { return normalizeKey(item.key || item) === normKey; });
     if (existingIndex !== -1) {
         var current = normalizeStatus(books[existingIndex].status);
         var next = getNextStatus(current);
@@ -566,11 +576,13 @@ function getNextStatus(status) {
         default: return "want";
     }
 }
+
 function normalizeStatus(status) {
     if (status === "reading") return "reading";
     if (status === "finished" || status === "completed") return "finished";
     return "want";
 }
+
 function getStatusText(status) {
     switch (normalizeStatus(status)) {
         case "reading": return "📖 Reading";
@@ -582,7 +594,7 @@ function getStatusText(status) {
 /* ===== ACTIONS ===== */
 function initializeActions() {
     if (elements.openLibraryButton) {
-        elements.openLibraryButton.addEventListener("click", function() {
+        elements.openLibraryButton.addEventListener("click", function () {
             if (!state.key) return;
             window.open(CONFIG.API_URL + "/works/" + normalizeKey(state.key), "_blank", "noopener,noreferrer");
         });
@@ -604,7 +616,7 @@ async function loadRelatedBooks() {
         if (!response.ok) throw new Error("Related books unavailable");
         var data = await response.json();
         var books = Array.isArray(data.docs) ? data.docs : [];
-        books = books.filter(function(item) { return normalizeKey(item.key) !== normalizeKey(state.key); });
+        books = books.filter(function (item) { return normalizeKey(item.key) !== normalizeKey(state.key); });
         books = books.slice(0, CONFIG.RELATED_LIMIT);
         renderRelatedBooks(books);
     } catch (error) {
@@ -618,9 +630,9 @@ function renderRelatedBooks(books) {
         elements.relatedSection.style.display = "none";
         return;
     }
-    elements.relatedGrid.innerHTML = books.map(function(book) { return createRelatedCard(book); }).join("");
-    document.querySelectorAll("[data-related-key]").forEach(function(card) {
-        card.addEventListener("click", function() {
+    elements.relatedGrid.innerHTML = books.map(function (book) { return createRelatedCard(book); }).join("");
+    document.querySelectorAll("[data-related-key]").forEach(function (card) {
+        card.addEventListener("click", function () {
             var key = this.dataset.relatedKey;
             window.location.href = "book-details.html?key=" + encodeURIComponent(key);
         });
@@ -629,7 +641,7 @@ function renderRelatedBooks(books) {
 
 function createRelatedCard(book) {
     var title = cleanText(book.title || "Unknown Title");
-    var author = Array.isArray(book.author_name) && book.author_name.length ? book.author_name.slice(0,1).join(", ") : "Unknown Author";
+    var author = Array.isArray(book.author_name) && book.author_name.length ? book.author_name.slice(0, 1).join(", ") : "Unknown Author";
     var cover = book.cover_i ? CONFIG.COVER_URL + "/" + book.cover_i + "-M.jpg" : "";
     var coverHTML = cover ? '<img src="' + escapeHTML(cover) + '" alt="' + escapeHTML(title) + '" loading="lazy">' : '<div style="height:100%;display:grid;place-items:center;font-size:35px;">📚</div>';
     var badge = '';
@@ -646,7 +658,7 @@ function createRelatedCard(book) {
 /* ===== NAVIGATION ===== */
 function initializeNavigation() {
     if (elements.backButton) {
-        elements.backButton.addEventListener("click", function() {
+        elements.backButton.addEventListener("click", function () {
             if (document.referrer && document.referrer.includes("/books/")) {
                 window.history.back();
             } else {
@@ -655,12 +667,238 @@ function initializeNavigation() {
         });
     }
     if (elements.errorBackButton) {
-        elements.errorBackButton.addEventListener("click", function() {
+        elements.errorBackButton.addEventListener("click", function () {
             window.location.href = "../books/books.html";
         });
     }
 }
 
+/* =========================================================
+   READING PROGRESS STORAGE
+========================================================= */
+function getReadingProgress() {
+    try {
+        return JSON.parse(localStorage.getItem(CONFIG.READING_PROGRESS_KEY)) || {};
+    } catch { return {}; }
+}
+
+function saveReadingProgress(ia, data) {
+    if (!ia) return;
+    try {
+        var all = getReadingProgress();
+        all[ia] = Object.assign({}, all[ia] || {}, data);
+        localStorage.setItem(CONFIG.READING_PROGRESS_KEY, JSON.stringify(all));
+    } catch (e) { console.warn("Could not save reading progress", e); }
+}
+
+function getBookProgress(ia) {
+    if (!ia) return null;
+    var all = getReadingProgress();
+    return all[ia] || null;
+}
+
+/* =========================================================
+   INLINE READER (SIMPLE + WORKING)
+========================================================= */
+function handleReadClick() {
+    if (!state.ia) {
+        showToast("This book cannot be opened in the reader.", "!");
+        return;
+    }
+    var progress = getBookProgress(state.ia);
+    if (progress && progress.lastOpened) {
+        showContinuePrompt();
+    } else {
+        openReader(false);
+    }
+}
+
+function showContinuePrompt() {
+    var progress = getBookProgress(state.ia);
+    var prompt = elements.continuePrompt;
+    if (!prompt) return;
+
+    var lastTime = "";
+    if (progress && progress.lastOpened) {
+        var diff = Date.now() - progress.lastOpened;
+        var mins = Math.floor(diff / 60000);
+        var hours = Math.floor(diff / 3600000);
+        var days = Math.floor(diff / 86400000);
+        if (days > 0) lastTime = days + (days === 1 ? " day ago" : " days ago");
+        else if (hours > 0) lastTime = hours + (hours === 1 ? " hour ago" : " hours ago");
+        else if (mins > 0) lastTime = mins + (mins === 1 ? " min ago" : " mins ago");
+        else lastTime = "just now";
+    }
+
+    if (elements.continueTitle) elements.continueTitle.textContent = "Continue Reading?";
+    if (elements.continueText) {
+        elements.continueText.innerHTML =
+            "You were reading <strong>" + escapeHTML(cleanText(state.book.title || "this book")) + "</strong>" +
+            (lastTime ? " <em>(" + lastTime + ")</em>" : "") +
+            ".<br>Continue from where you left off, or start from the beginning?";
+    }
+    prompt.classList.add("open");
+}
+
+function hideContinuePrompt() {
+    if (elements.continuePrompt) elements.continuePrompt.classList.remove("open");
+}
+
+/* ===== Open Reader (SIMPLE & RELIABLE) ===== */
+function openReader(restart) {
+    if (!state.ia) return;
+    hideContinuePrompt();
+
+    var container = elements.readerContainer;
+    var iframe = elements.readerIframe;
+    if (!container || !iframe) return;
+
+    if (elements.readerToolbarTitle) {
+        elements.readerToolbarTitle.textContent = cleanText(state.book.title || "Reading");
+    }
+
+    // Build embed URL
+    var embedUrl = "https://archive.org/embed/" + encodeURIComponent(state.ia);
+    if (restart) {
+        embedUrl += "?pages=1";
+    }
+
+    // Set iframe src FIRST
+    iframe.src = embedUrl;
+
+    // Then show container
+    container.classList.add("show");
+
+    // Mobile → auto fullscreen
+    if (window.innerWidth < 800) {
+        document.body.classList.add("reader-fullscreen");
+        state.fullscreen = true;
+        updateFullscreenBtn();
+    } else {
+        // Desktop → scroll to reader
+        setTimeout(function () {
+            container.scrollIntoView({ behavior: "smooth", block: "start" });
+        }, 200);
+    }
+
+    // Save progress
+    if (restart) {
+        saveReadingProgress(state.ia, { lastPage: 1, lastOpened: Date.now(), restarted: true });
+        showToast("Starting from the beginning.", "↻");
+    } else {
+        saveReadingProgress(state.ia, { lastOpened: Date.now() });
+    }
+
+    startReadingSession();
+}
+
+/* ===== Close Reader ===== */
+function closeReader() {
+    var container = elements.readerContainer;
+    var iframe = elements.readerIframe;
+
+    if (container) container.classList.remove("show");
+    if (state.fullscreen) {
+        document.body.classList.remove("reader-fullscreen");
+        state.fullscreen = false;
+        updateFullscreenBtn();
+    }
+
+    stopReadingSession();
+
+    if (state.ia) {
+        saveReadingProgress(state.ia, {
+            lastOpened: Date.now(),
+            totalTime: (getBookProgress(state.ia) || {}).totalTime || 0
+        });
+    }
+
+    if (iframe) {
+        setTimeout(function () { iframe.src = "about:blank"; }, 300);
+    }
+
+    showToast("Reading position saved.", "✓");
+}
+
+/* ===== Fullscreen Toggle ===== */
+function toggleFullscreen() {
+    state.fullscreen = !state.fullscreen;
+    if (state.fullscreen) {
+        document.body.classList.add("reader-fullscreen");
+    } else {
+        document.body.classList.remove("reader-fullscreen");
+    }
+    updateFullscreenBtn();
+}
+
+function updateFullscreenBtn() {
+    if (elements.readerFullscreenBtn) {
+        elements.readerFullscreenBtn.textContent = state.fullscreen ? "⤢" : "⛶";
+        elements.readerFullscreenBtn.title = state.fullscreen ? "Exit Fullscreen" : "Fullscreen";
+    }
+}
+
+/* ===== Reading Session Tracker ===== */
+function startReadingSession() {
+    readingSessionStart = Date.now();
+}
+
+function stopReadingSession() {
+    if (!readingSessionStart || !state.ia) {
+        readingSessionStart = null;
+        return;
+    }
+    var elapsed = Math.floor((Date.now() - readingSessionStart) / 1000);
+    var progress = getBookProgress(state.ia) || {};
+    var total = Number(progress.totalTime || 0) + elapsed;
+    saveReadingProgress(state.ia, { totalTime: total, lastOpened: Date.now() });
+    readingSessionStart = null;
+}
+
+/* ===== Reader Events Init ===== */
+function initializeReader() {
+    if (elements.readerCloseBtn) {
+        elements.readerCloseBtn.addEventListener("click", closeReader);
+    }
+    if (elements.readerFullscreenBtn) {
+        elements.readerFullscreenBtn.addEventListener("click", toggleFullscreen);
+    }
+
+    if (elements.continueReadingBtn) {
+        elements.continueReadingBtn.addEventListener("click", function () {
+            openReader(false);
+        });
+    }
+    if (elements.restartReadingBtn) {
+        elements.restartReadingBtn.addEventListener("click", function () {
+            openReader(true);
+        });
+    }
+    if (elements.cancelReadingBtn) {
+        elements.cancelReadingBtn.addEventListener("click", hideContinuePrompt);
+    }
+
+    if (elements.continuePrompt) {
+        elements.continuePrompt.addEventListener("click", function (e) {
+            if (e.target === elements.continuePrompt) hideContinuePrompt();
+        });
+    }
+
+    document.addEventListener("keydown", function (e) {
+        if (e.key === "Escape") {
+            if (elements.continuePrompt && elements.continuePrompt.classList.contains("open")) {
+                hideContinuePrompt();
+                return;
+            }
+            if (state.fullscreen) {
+                toggleFullscreen();
+                return;
+            }
+        }
+    });
+}
+
+/* ===== SHOW / HIDE ===== */
 function showLoading() {
     elements.loadingSection.style.display = "flex";
     elements.detailsSection.classList.remove("show");
@@ -675,6 +913,7 @@ function showError(message) {
     elements.errorSection.classList.add("show");
 }
 
+/* ===== TOAST ===== */
 function showToast(message, icon) {
     icon = icon || "✓";
     if (!elements.toast) return;
@@ -682,13 +921,14 @@ function showToast(message, icon) {
     elements.toastIcon.textContent = icon;
     elements.toast.classList.add("show");
     clearTimeout(toastTimer);
-    toastTimer = setTimeout(function() {
+    toastTimer = setTimeout(function () {
         elements.toast.classList.remove("show");
     }, 2600);
 }
 
+/* ===== HELPERS ===== */
 function cleanText(v) { return String(v || "").replace(/\s+/g, " ").trim(); }
 function normalizeText(v) { return cleanText(v).toLowerCase(); }
 function escapeHTML(v) {
-    return String(v || "").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#039;");
+    return String(v || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
 }

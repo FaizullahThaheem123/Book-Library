@@ -69,6 +69,7 @@
                     </div>
                 </div>
 
+                <!-- FILTERS -->
                 <div class="filters">
                     <button class="filter-btn active" data-filter="all">All Books</button>
                     <button class="filter-btn" data-filter="free">🟢 Free Only</button>
@@ -78,6 +79,31 @@
                     <button class="filter-btn" data-filter="religion">Religion</button>
                     <button class="filter-btn" data-filter="technology">Technology</button>
                 </div>
+
+                <!-- LANGUAGE SELECTOR -->
+                <div class="language-box">
+                    <label for="languageSelect">🌐 Read in:</label>
+                    <select id="languageSelect">
+                        <option value="all">All Languages</option>
+                        <option value="eng">English</option>
+                        <option value="urd">اردو (Urdu)</option>
+                        <option value="ara">العربية (Arabic)</option>
+                        <option value="hin">हिन्दी (Hindi)</option>
+                        <option value="fre">Français (French)</option>
+                        <option value="ger">Deutsch (German)</option>
+                        <option value="spa">Español (Spanish)</option>
+                        <option value="ita">Italiano (Italian)</option>
+                        <option value="por">Português (Portuguese)</option>
+                        <option value="rus">Русский (Russian)</option>
+                        <option value="chi">中文 (Chinese)</option>
+                        <option value="jpn">日本語 (Japanese)</option>
+                        <option value="tur">Türkçe (Turkish)</option>
+                        <option value="per">فارسی (Persian)</option>
+                    </select>
+                </div>
+
+                <!-- LANGUAGE NOTICE -->
+                <div class="language-notice" id="languageNotice"></div>
 
                 <div class="loading-state" id="loadingState">
                     <div class="spinner"></div>
@@ -90,7 +116,7 @@
                 <div class="empty-state" id="emptyState">
                     <div class="empty-icon">📚</div>
                     <h3>No books found</h3>
-                    <p>Try another title, author, or subject.</p>
+                    <p>Try another title, author, subject, or language.</p>
                     <button id="resetSearch">Browse Popular Books</button>
                 </div>
 

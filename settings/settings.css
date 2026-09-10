@@ -1,6 +1,6 @@
 /* =========================================================
    BOOK LIBRARY — SETTINGS CSS
-   Version 3.0 (Unified Dark Class + Fixed Bottom Nav)
+   Version 4.0 (Unified Header + Fixed Bottom Nav)
 ========================================================= */
 
 * {
@@ -716,7 +716,7 @@ button {
     font-size: 17px;
 }
 
-/* ===== MOBILE BOTTOM NAV (SAME AS OTHER PAGES) ===== */
+/* ===== MOBILE BOTTOM NAV ===== */
 .mobile-bottom-nav {
     display: none;
 }
@@ -744,12 +744,9 @@ button {
 }
 
 @media (max-width: 650px) {
-    .container, .header-container { width: min(100% - 24px, 1180px); }
-    .header-container { min-height: 62px; }
-    .logo-icon { font-size: 24px; }
-    .logo-text { font-size: 18px; }
-    .icon-button { width: 37px; height: 37px; }
-    .mobile-menu { top: 62px; }
+    .container { width: min(calc(100% - 28px), var(--container)); }
+    .header-container { width: calc(100% - 28px); }
+
     .settings-hero { padding: 35px 0; }
     .settings-hero .container { align-items: flex-start; }
     .hero-icon { width: 55px; height: 55px; border-radius: 15px; font-size: 27px; }
@@ -817,6 +814,13 @@ button {
     .mobile-bottom-nav a.active {
         color: var(--primary);
     }
+}
+
+@media (max-width: 430px) {
+    .logo-text { font-size: 17px; }
+    .logo-icon { width: 38px; height: 38px; font-size: 19px; }
+    .header-actions { gap: 5px; }
+    .icon-button { width: 38px; height: 38px; }
 }
 
 @media (max-width: 390px) {
