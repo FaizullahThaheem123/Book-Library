@@ -516,3 +516,4 @@ function showToast(message, icon = "✓") {
 ========================================================= */
 function cleanText(text) { return String(text).replace(/\s+/g, " ").trim(); }
 function escapeHTML(v) { return String(v).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#039;"); }
+

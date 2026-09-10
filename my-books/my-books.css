@@ -735,3 +735,4 @@ body.dark .book-menu { background: rgba(20,25,35,0.9); color: white; }
     .books-grid { grid-template-columns: 1fr 1fr; }
     .book-cover { height: 180px; }
 }
+
