@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
     <title>Book Details — Book Library</title>
     <link rel="stylesheet" href="book-details.css" />
 </head>
@@ -117,7 +117,7 @@
                             <p>Availability depends on the book's online access rights.</p>
                         </div>
 
-                        <!-- ===== INLINE READER (Pahle Jaisa) ===== -->
+                        <!-- ===== INLINE READER ===== -->
                         <div class="reader-container" id="readerContainer">
                             <div class="reader-toolbar">
                                 <div class="reader-toolbar-left">
@@ -125,12 +125,10 @@
                                     <span class="reader-toolbar-title" id="readerToolbarTitle">Reading</span>
                                 </div>
                                 <div class="reader-toolbar-right">
-                                    <button class="reader-toolbar-btn" id="readerFullscreenBtn" title="Fullscreen">⛶</button>
                                     <button class="reader-toolbar-btn close" id="readerCloseBtn" title="Close">✕</button>
                                 </div>
                             </div>
                             <div class="reader-frame-wrap">
-                               
                                 <iframe
                                     id="readerIframe"
                                     allowfullscreen
@@ -199,20 +197,6 @@
 
     <!-- ===== TOAST ===== -->
     <div class="toast" id="toast"><span id="toastIcon">✓</span><span id="toastMessage">Done</span></div>
-
-    <!-- ===== CONTINUE READING PROMPT ===== -->
-    <div class="continue-prompt" id="continuePrompt">
-        <div class="continue-box">
-            <div class="continue-icon">📖</div>
-            <h3 id="continueTitle">Continue Reading?</h3>
-            <p id="continueText">You were reading this book earlier. Do you want to continue from where you left off, or start from the beginning?</p>
-            <div class="continue-actions">
-                <button class="continue-btn primary" id="continueReadingBtn">▶ Continue Reading</button>
-                <button class="continue-btn secondary" id="restartReadingBtn">↻ Start from Beginning</button>
-            </div>
-            <button class="continue-cancel" id="cancelReadingBtn">Cancel</button>
-        </div>
-    </div>
 
     <script src="book-details.js"></script>
 </body>

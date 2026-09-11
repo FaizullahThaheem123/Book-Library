@@ -1,6 +1,6 @@
 /* =========================================================
    BOOK LIBRARY — BOOK DETAILS JAVASCRIPT
-   Version 10.0 (True Fullscreen Reader on Mobile)
+   Version 11.0 (No Continue Prompt, No Zoom)
 ========================================================= */
 
 "use strict";
@@ -13,7 +13,6 @@ const CONFIG = {
     FAVORITES_KEY: "bookLibraryFavorites",
     MY_BOOKS_KEY: "bookLibraryMyBooks",
     THEME_KEY: "bookLibraryTheme",
-    READING_PROGRESS_KEY: "bookLibraryReadingProgress",
     SEARCH_PAGE: "../search/search.html",
     RELATED_LIMIT: 5
 };
@@ -68,18 +67,10 @@ const elements = {
     readerContainer: document.getElementById("readerContainer"),
     readerIframe: document.getElementById("readerIframe"),
     readerToolbarTitle: document.getElementById("readerToolbarTitle"),
-    readerFullscreenBtn: document.getElementById("readerFullscreenBtn"),
-    readerCloseBtn: document.getElementById("readerCloseBtn"),
-    continuePrompt: document.getElementById("continuePrompt"),
-    continueTitle: document.getElementById("continueTitle"),
-    continueText: document.getElementById("continueText"),
-    continueReadingBtn: document.getElementById("continueReadingBtn"),
-    restartReadingBtn: document.getElementById("restartReadingBtn"),
-    cancelReadingBtn: document.getElementById("cancelReadingBtn")
+    readerCloseBtn: document.getElementById("readerCloseBtn")
 };
 
 let toastTimer = null;
-let readingSessionStart = null;
 let savedScrollY = 0;
 
 document.addEventListener("DOMContentLoaded", function () {
@@ -329,12 +320,12 @@ function renderReadButton() {
         readBtn.style.background = '#16a34a';
         readBtn.disabled = false;
         readBtn.onclick = function () {
-            handleReadClick();
+            openReader();
         };
         if (elements.accessMessage) {
             elements.accessMessage.style.display = 'flex';
             elements.accessMessage.querySelector('p').innerHTML =
-                '<strong>✅ Free to Read:</strong> This book is 100% free. Click "Read Free" to open the reader below.';
+                '<strong>✅ Free to Read:</strong> This book is 100% free. Click "Read Free" to open the reader.';
         }
         return;
     }
@@ -675,80 +666,10 @@ function initializeNavigation() {
 }
 
 /* =========================================================
-   READING PROGRESS STORAGE
+   READER (Simple — No Prompt, No Native Fullscreen)
 ========================================================= */
-function getReadingProgress() {
-    try {
-        return JSON.parse(localStorage.getItem(CONFIG.READING_PROGRESS_KEY)) || {};
-    } catch { return {}; }
-}
-
-function saveReadingProgress(ia, data) {
-    if (!ia) return;
-    try {
-        var all = getReadingProgress();
-        all[ia] = Object.assign({}, all[ia] || {}, data);
-        localStorage.setItem(CONFIG.READING_PROGRESS_KEY, JSON.stringify(all));
-    } catch (e) { console.warn("Could not save reading progress", e); }
-}
-
-function getBookProgress(ia) {
-    if (!ia) return null;
-    var all = getReadingProgress();
-    return all[ia] || null;
-}
-
-/* =========================================================
-   READER (Fixed Fullscreen + Reliable Loading)
-========================================================= */
-function handleReadClick() {
-    if (!state.ia) {
-        showToast("This book cannot be opened in the reader.", "!");
-        return;
-    }
-    var progress = getBookProgress(state.ia);
-    if (progress && progress.lastOpened) {
-        showContinuePrompt();
-    } else {
-        openReader(false);
-    }
-}
-
-function showContinuePrompt() {
-    var progress = getBookProgress(state.ia);
-    var prompt = elements.continuePrompt;
-    if (!prompt) return;
-
-    var lastTime = "";
-    if (progress && progress.lastOpened) {
-        var diff = Date.now() - progress.lastOpened;
-        var mins = Math.floor(diff / 60000);
-        var hours = Math.floor(diff / 3600000);
-        var days = Math.floor(diff / 86400000);
-        if (days > 0) lastTime = days + (days === 1 ? " day ago" : " days ago");
-        else if (hours > 0) lastTime = hours + (hours === 1 ? " hour ago" : " hours ago");
-        else if (mins > 0) lastTime = mins + (mins === 1 ? " min ago" : " mins ago");
-        else lastTime = "just now";
-    }
-
-    if (elements.continueTitle) elements.continueTitle.textContent = "Continue Reading?";
-    if (elements.continueText) {
-        elements.continueText.innerHTML =
-            "You were reading <strong>" + escapeHTML(cleanText(state.book.title || "this book")) + "</strong>" +
-            (lastTime ? " <em>(" + lastTime + ")</em>" : "") +
-            ".<br>Continue from where you left off, or start from the beginning?";
-    }
-    prompt.classList.add("open");
-}
-
-function hideContinuePrompt() {
-    if (elements.continuePrompt) elements.continuePrompt.classList.remove("open");
-}
-
-/* ===== Open Reader ===== */
-function openReader(restart) {
+function openReader() {
     if (!state.ia) return;
-    hideContinuePrompt();
 
     var container = elements.readerContainer;
     var iframe = elements.readerIframe;
@@ -759,196 +680,59 @@ function openReader(restart) {
     }
 
     // Build Archive.org embed URL
-    // ui=embed → clean minimal UI
-    // view=theater → single page view
     var embedUrl = "https://archive.org/embed/" + encodeURIComponent(state.ia);
     embedUrl += "?ui=embed&view=theater";
-    if (restart) {
-        embedUrl += "&pages=1";
-    }
 
     iframe.src = embedUrl;
 
-    // On mobile → fullscreen
+    // On mobile → CSS-only fullscreen (NO native fullscreen API)
     if (window.innerWidth < 800) {
         savedScrollY = window.scrollY || window.pageYOffset || 0;
         document.body.classList.add("reader-fullscreen");
         state.fullscreen = true;
-        updateFullscreenBtn();
-
-        // Try native fullscreen
-        setTimeout(function () {
-            try {
-                var el = document.documentElement;
-                if (el.requestFullscreen) {
-                    el.requestFullscreen().catch(function () {});
-                } else if (el.webkitRequestFullscreen) {
-                    el.webkitRequestFullscreen();
-                }
-            } catch (e) {}
-        }, 150);
     } else {
-        // Desktop → show inline
+        // Desktop → inline
         container.classList.add("show");
         setTimeout(function () {
             container.scrollIntoView({ behavior: "smooth", block: "start" });
         }, 200);
     }
-
-    // Save progress
-    if (restart) {
-        saveReadingProgress(state.ia, { lastPage: 1, lastOpened: Date.now(), restarted: true });
-        showToast("Starting from the beginning.", "↻");
-    } else {
-        saveReadingProgress(state.ia, { lastOpened: Date.now() });
-    }
-
-    startReadingSession();
 }
 
-/* ===== Close Reader ===== */
 function closeReader() {
     var container = elements.readerContainer;
     var iframe = elements.readerIframe;
 
     if (container) container.classList.remove("show");
-
     if (state.fullscreen) {
         document.body.classList.remove("reader-fullscreen");
         state.fullscreen = false;
-        updateFullscreenBtn();
-
-        // Restore scroll
         setTimeout(function () {
             window.scrollTo(0, savedScrollY);
         }, 50);
-    }
-
-    stopReadingSession();
-
-    if (state.ia) {
-        saveReadingProgress(state.ia, {
-            lastOpened: Date.now(),
-            totalTime: (getBookProgress(state.ia) || {}).totalTime || 0
-        });
     }
 
     if (iframe) {
         setTimeout(function () { iframe.src = "about:blank"; }, 300);
     }
 
-    // Exit native fullscreen
-    try {
-        if (document.fullscreenElement) {
-            document.exitFullscreen().catch(function () {});
-        } else if (document.webkitFullscreenElement) {
-            document.webkitExitFullscreen();
-        }
-    } catch (e) {}
-
-    showToast("Reading position saved.", "✓");
+    showToast("Reader closed.", "✓");
 }
 
-/* ===== Fullscreen Toggle ===== */
-function toggleFullscreen() {
-    state.fullscreen = !state.fullscreen;
-    if (state.fullscreen) {
-        savedScrollY = window.scrollY || window.pageYOffset || 0;
-        document.body.classList.add("reader-fullscreen");
-        try {
-            var el = document.documentElement;
-            if (el.requestFullscreen) {
-                el.requestFullscreen().catch(function () {});
-            }
-        } catch (e) {}
-    } else {
-        document.body.classList.remove("reader-fullscreen");
-        try {
-            if (document.fullscreenElement) {
-                document.exitFullscreen().catch(function () {});
-            }
-        } catch (e) {}
-        setTimeout(function () {
-            window.scrollTo(0, savedScrollY);
-        }, 50);
-    }
-    updateFullscreenBtn();
-}
-
-function updateFullscreenBtn() {
-    if (elements.readerFullscreenBtn) {
-        elements.readerFullscreenBtn.textContent = state.fullscreen ? "⤢" : "⛶";
-        elements.readerFullscreenBtn.title = state.fullscreen ? "Exit Fullscreen" : "Fullscreen";
-    }
-}
-
-/* ===== Reading Session ===== */
-function startReadingSession() {
-    readingSessionStart = Date.now();
-}
-
-function stopReadingSession() {
-    if (!readingSessionStart || !state.ia) {
-        readingSessionStart = null;
-        return;
-    }
-    var elapsed = Math.floor((Date.now() - readingSessionStart) / 1000);
-    var progress = getBookProgress(state.ia) || {};
-    var total = Number(progress.totalTime || 0) + elapsed;
-    saveReadingProgress(state.ia, { totalTime: total, lastOpened: Date.now() });
-    readingSessionStart = null;
-}
-
-/* ===== Reader Events ===== */
 function initializeReader() {
     if (elements.readerCloseBtn) {
         elements.readerCloseBtn.addEventListener("click", closeReader);
     }
-    if (elements.readerFullscreenBtn) {
-        elements.readerFullscreenBtn.addEventListener("click", toggleFullscreen);
-    }
-
-    if (elements.continueReadingBtn) {
-        elements.continueReadingBtn.addEventListener("click", function () {
-            openReader(false);
-        });
-    }
-    if (elements.restartReadingBtn) {
-        elements.restartReadingBtn.addEventListener("click", function () {
-            openReader(true);
-        });
-    }
-    if (elements.cancelReadingBtn) {
-        elements.cancelReadingBtn.addEventListener("click", hideContinuePrompt);
-    }
-
-    if (elements.continuePrompt) {
-        elements.continuePrompt.addEventListener("click", function (e) {
-            if (e.target === elements.continuePrompt) hideContinuePrompt();
-        });
-    }
 
     document.addEventListener("keydown", function (e) {
         if (e.key === "Escape") {
-            if (elements.continuePrompt && elements.continuePrompt.classList.contains("open")) {
-                hideContinuePrompt();
+            if (elements.readerContainer && elements.readerContainer.classList.contains("show")) {
+                closeReader();
                 return;
             }
             if (state.fullscreen) {
-                toggleFullscreen();
-                return;
-            }
-            if (elements.readerContainer && elements.readerContainer.classList.contains("show")) {
                 closeReader();
             }
-        }
-    });
-
-    // Sync with browser fullscreen exit
-    document.addEventListener("fullscreenchange", function () {
-        if (!document.fullscreenElement && state.fullscreen) {
-            // User exited fullscreen manually — keep body class? No, close.
-            // Actually just update button state, don't close.
         }
     });
 }
