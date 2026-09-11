@@ -1,6 +1,6 @@
 /* =========================================================
    BOOK LIBRARY — BOOK DETAILS JAVASCRIPT
-   Version 11.0 (No Continue Prompt, No Zoom)
+   Version 11.1 (Fixed — No Continue Prompt, Verified)
 ========================================================= */
 
 "use strict";
@@ -666,32 +666,32 @@ function initializeNavigation() {
 }
 
 /* =========================================================
-   READER (Simple — No Prompt, No Native Fullscreen)
+   READER (No Prompt, No Native Fullscreen = No Zoom)
 ========================================================= */
 function openReader() {
     if (!state.ia) return;
 
     var container = elements.readerContainer;
     var iframe = elements.readerIframe;
-    if (!container || !iframe) return;
+    if (!container || !iframe) {
+        console.warn("Reader container not found");
+        return;
+    }
 
     if (elements.readerToolbarTitle) {
         elements.readerToolbarTitle.textContent = cleanText(state.book.title || "Reading");
     }
 
-    // Build Archive.org embed URL
     var embedUrl = "https://archive.org/embed/" + encodeURIComponent(state.ia);
     embedUrl += "?ui=embed&view=theater";
 
     iframe.src = embedUrl;
 
-    // On mobile → CSS-only fullscreen (NO native fullscreen API)
     if (window.innerWidth < 800) {
         savedScrollY = window.scrollY || window.pageYOffset || 0;
         document.body.classList.add("reader-fullscreen");
         state.fullscreen = true;
     } else {
-        // Desktop → inline
         container.classList.add("show");
         setTimeout(function () {
             container.scrollIntoView({ behavior: "smooth", block: "start" });
