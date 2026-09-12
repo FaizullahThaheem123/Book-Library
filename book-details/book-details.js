@@ -1,6 +1,6 @@
 /* =========================================================
    BOOK LIBRARY — BOOK DETAILS JAVASCRIPT
-   Version 11.1 (Fixed — No Continue Prompt, Verified)
+   Version 15.1 (All Languages — Editions API Fixed + Strict Language Lock)
 ========================================================= */
 
 "use strict";
@@ -26,7 +26,10 @@ const state = {
     readable: false,
     ia: null,
     ebookAccess: "no_ebook",
-    fullscreen: false
+    fullscreen: false,
+    iaFromURL: "",
+    preferredLang: "",
+    languageUnavailable: false
 };
 
 const elements = {
@@ -86,7 +89,6 @@ document.addEventListener("DOMContentLoaded", function () {
     loadBook();
 });
 
-/* ===== THEME SYNC ===== */
 function setupThemeSync() {
     window.addEventListener("storage", function (e) {
         if (e.key === CONFIG.THEME_KEY) {
@@ -166,12 +168,37 @@ function getFirstIA(value) {
     return null;
 }
 
+/* =========================================================
+   LANGUAGE CODE EXTRACTOR (handles both formats)
+========================================================= */
+function extractLangCode(lang) {
+    if (!lang) return "";
+    if (typeof lang === "object") {
+        var k = lang.key || lang.code || "";
+        return String(k).replace("/languages/", "").trim().toLowerCase();
+    }
+    return String(lang).replace("/languages/", "").trim().toLowerCase();
+}
+
+function editionMatchesLanguage(edition, langCode) {
+    if (!edition || !langCode) return false;
+    if (!Array.isArray(edition.languages) || !edition.languages.length) return false;
+    return edition.languages.some(function (l) {
+        return extractLangCode(l) === langCode.toLowerCase();
+    });
+}
+
 async function loadBook() {
     state.key = getBookKey();
     if (!state.key) {
         showError("No book was selected.");
         return;
     }
+
+    var params = new URLSearchParams(window.location.search);
+    state.iaFromURL = params.get("ia") || "";
+    state.preferredLang = (params.get("lang") || "").toLowerCase();
+
     showLoading();
     try {
         var workKey = normalizeKey(state.key);
@@ -180,12 +207,16 @@ async function loadBook() {
         var data = await response.json();
         state.book = data;
 
-        var ia = getFirstIA(data.ia) || getFirstIA(data.ia_metadata?.identifier);
-        state.ia = ia;
+        // ✅ Priority 1: URL se IA
+        if (state.iaFromURL) {
+            state.ia = state.iaFromURL;
+        } else {
+            state.ia = getFirstIA(data.ia) || getFirstIA(data.ia_metadata?.identifier);
+        }
 
         await enrichBookData();
 
-        if (!state.ia) {
+        if (!state.ia && !state.preferredLang) {
             var fallback = getFirstIA(data.ia_metadata?.identifier);
             if (fallback) state.ia = fallback;
         }
@@ -204,30 +235,161 @@ async function loadBook() {
     }
 }
 
+/* =========================================================
+   ENRICH — Editions API with correct field parsing
+   ✅ FIX: agar user ne language select ki hai to sirf usi
+   language ki edition khulegi — kisi aur zuban (jaise English)
+   pe chup ke fallback nahi hoga.
+========================================================= */
 async function enrichBookData() {
     var book = state.book;
     if (Array.isArray(book.authors) && book.authors.length) {
         var authors = await Promise.all(book.authors.slice(0, 3).map(function (item) { return getAuthorName(item); }));
         book._authors = authors.filter(Boolean);
     }
+
+    // ✅ PRIORITY 1: Agar language prefer ki hai → Editions API se sahi edition
+    if (state.preferredLang) {
+        try {
+            var workKey = normalizeKey(state.key);
+            var editionsUrl = CONFIG.API_URL + "/works/" + workKey + "/editions.json?limit=500";
+            var edResponse = await fetch(editionsUrl);
+
+            if (edResponse.ok) {
+                var edData = await edResponse.json();
+                var editions = Array.isArray(edData.entries) ? edData.entries : [];
+
+                // ✅ Filter: language match + IA available
+                var matchingEditions = editions.filter(function (ed) {
+                    if (!editionMatchesLanguage(ed, state.preferredLang)) return false;
+                    var ia = getFirstIA(ed.ocaid) || getFirstIA(ed.ia);
+                    return !!ia;
+                });
+
+                if (matchingEditions.length) {
+                    var pick = matchingEditions[0];
+                    var pickIA = getFirstIA(pick.ocaid) || getFirstIA(pick.ia);
+                    state.ia = pickIA;
+                    book._edition = {
+                        key: pick.key,
+                        title: pick.title,
+                        cover_i: (pick.covers && pick.covers.length) ? pick.covers[0] : null,
+                        number_of_pages_median: pick.number_of_pages,
+                        publisher: pick.publishers || [],
+                        first_publish_year: pick.publish_date,
+                        language: (pick.languages || []).map(function (l) {
+                            return typeof l === "object" ? (l.key || l.code || "") : l;
+                        })
+                    };
+                    book._editionLanguage = extractLangCode(pick.languages[0]);
+                    if (pick.ebook_access) state.ebookAccess = pick.ebook_access;
+                    state.languageUnavailable = false;
+                    return;
+                }
+
+                // ⚠️ Is language mein koi readable edition nahi mili.
+                // ✅ FIX: pehle koi bhi (mostly English) edition utha li jaati thi —
+                // ab aisa nahi hoga. User ne jo zuban select ki thi, usi mein
+                // available na hone ki soorat mein saaf "not available" dikhega.
+                var langOnlyEditions = editions.filter(function (ed) {
+                    return editionMatchesLanguage(ed, state.preferredLang);
+                });
+                if (langOnlyEditions.length) {
+                    // Zuban ki edition mojood hai lekin readable file/IA nahi —
+                    // wahi zuban ki details dikhao, bas reader disable rahega.
+                    var langPick = langOnlyEditions[0];
+                    book._edition = {
+                        key: langPick.key,
+                        title: langPick.title,
+                        cover_i: (langPick.covers && langPick.covers.length) ? langPick.covers[0] : null,
+                        number_of_pages_median: langPick.number_of_pages,
+                        publisher: langPick.publishers || [],
+                        first_publish_year: langPick.publish_date,
+                        language: (langPick.languages || []).map(function (l) {
+                            return typeof l === "object" ? (l.key || l.code || "") : l;
+                        })
+                    };
+                    book._editionLanguage = extractLangCode(langPick.languages[0]);
+                }
+                state.ia = null;
+                state.ebookAccess = "no_ebook";
+                state.languageUnavailable = true;
+                return;
+            }
+        } catch (err) {
+            console.warn("Editions API failed:", err);
+        }
+    }
+
+    // ✅ PRIORITY 2: Search API fallback
     try {
         var url = new URL(CONFIG.SEARCH_URL);
         url.searchParams.set("title", book.title || "");
-        url.searchParams.set("limit", "5");
+        url.searchParams.set("limit", "30");
         url.searchParams.set("fields", "key,title,author_name,first_publish_year,cover_i,publisher,number_of_pages_median,language,ia,ebook_access,public_scan_b");
+
         var response = await fetch(url.toString());
-        if (response.ok) {
-            var data = await response.json();
-            if (data.docs && data.docs.length) {
-                var match = data.docs.find(function (item) { return normalizeText(item.title) === normalizeText(book.title); });
-                if (!match) match = data.docs[0];
-                book._edition = match;
-                if (!state.ia) {
-                    var editionIA = getFirstIA(match.ia);
-                    if (editionIA) state.ia = editionIA;
-                }
-                if (match.ebook_access) state.ebookAccess = match.ebook_access;
+        if (!response.ok) return;
+
+        var data = await response.json();
+        if (!data.docs || !data.docs.length) return;
+
+        var matches = data.docs.filter(function (item) {
+            return normalizeText(item.title) === normalizeText(book.title);
+        });
+        if (!matches.length) matches = data.docs;
+
+        var editionsWithIA = matches.filter(function (m) {
+            return getFirstIA(m.ia);
+        });
+
+        var chosenEdition = null;
+
+        // Priority: URL IA match
+        if (state.iaFromURL) {
+            chosenEdition = editionsWithIA.find(function (m) {
+                return getFirstIA(m.ia) === state.iaFromURL;
+            });
+        }
+
+        // Priority: Language match
+        if (!chosenEdition && state.preferredLang) {
+            chosenEdition = editionsWithIA.find(function (m) {
+                if (!Array.isArray(m.language) || !m.language.length) return false;
+                return m.language.some(function (l) {
+                    return extractLangCode(l) === state.preferredLang.toLowerCase();
+                });
+            });
+            if (chosenEdition) {
+                var langIA = getFirstIA(chosenEdition.ia);
+                if (langIA) state.ia = langIA;
+                state.languageUnavailable = false;
             }
+        }
+
+        // ✅ FIX: agar preferredLang select ki gayi thi aur yahan bhi match nahi mila,
+        // to "kisi bhi" edition (editionsWithIA[0]) pe fallback nahi karna —
+        // warna wahi English-wali dikkat wapas aa jaati hai.
+        if (!chosenEdition && state.preferredLang) {
+            state.ia = null;
+            state.ebookAccess = "no_ebook";
+            state.languageUnavailable = true;
+        } else if (!chosenEdition && editionsWithIA.length) {
+            chosenEdition = editionsWithIA[0];
+            var firstIA = getFirstIA(chosenEdition.ia);
+            if (firstIA) state.ia = firstIA;
+        }
+
+        if (!chosenEdition) chosenEdition = matches[0];
+
+        book._edition = chosenEdition;
+
+        if (chosenEdition.language && chosenEdition.language.length) {
+            book._editionLanguage = chosenEdition.language[0];
+        }
+
+        if (chosenEdition.ebook_access && !state.languageUnavailable) {
+            state.ebookAccess = chosenEdition.ebook_access;
         }
     } catch (error) {
         console.warn("Edition enrichment unavailable:", error);
@@ -248,6 +410,13 @@ async function getAuthorName(authorRef) {
 async function checkFreeAccess() {
     state.ebookAccess = state.ebookAccess || "no_ebook";
     state.readable = false;
+
+    // ✅ Agar select ki gayi zuban mein book available hi nahi to
+    // access check bhi skip karo — koi doosri zuban ki file na khule.
+    if (state.languageUnavailable) {
+        state.ebookAccess = "no_ebook";
+        return;
+    }
 
     if (!state.ia) {
         state.ebookAccess = "no_ebook";
@@ -313,15 +482,32 @@ function renderReadButton() {
     var readBtn = elements.readButton;
     if (!readBtn) return;
 
+    // ✅ FIX: select ki gayi zuban mein book available nahi — reader ko
+    // kisi aur zuban ki file se disguise nahi karna, saaf bata do.
+    if (state.languageUnavailable) {
+        readBtn.innerHTML = '📖 <span>Not in this Language</span>';
+        readBtn.style.opacity = '0.6';
+        readBtn.style.cursor = 'not-allowed';
+        readBtn.style.background = '#6b7280';
+        readBtn.disabled = true;
+        readBtn.onclick = function () {
+            showToast('Ye book aapki selected zuban mein available nahi hai.', '📚');
+        };
+        if (elements.accessMessage) {
+            elements.accessMessage.style.display = 'flex';
+            elements.accessMessage.querySelector('p').innerHTML =
+                '<strong>⚠️ Not Available in this Language:</strong> Ye book aapki selected zuban mein maujood nahi hai. Doosri book try karo ya "All Languages" select karo.';
+        }
+        return;
+    }
+
     if (state.ebookAccess === "public" && state.ia) {
         readBtn.innerHTML = '📖 <span>Read Free</span>';
         readBtn.style.opacity = '1';
         readBtn.style.cursor = 'pointer';
         readBtn.style.background = '#16a34a';
         readBtn.disabled = false;
-        readBtn.onclick = function () {
-            openReader();
-        };
+        readBtn.onclick = function () { openReader(); };
         if (elements.accessMessage) {
             elements.accessMessage.style.display = 'flex';
             elements.accessMessage.querySelector('p').innerHTML =
@@ -383,7 +569,12 @@ function getPublisher(book, edition) {
 function getPages(book, edition) { return edition.number_of_pages_median || book.number_of_pages || "—"; }
 
 function getLanguage(book, edition) {
-    if (Array.isArray(edition.language) && edition.language.length) return formatLanguage(edition.language[0]);
+    if (Array.isArray(edition.language) && edition.language.length) {
+        return formatLanguage(edition.language[0]);
+    }
+    if (book._editionLanguage) {
+        return formatLanguage(book._editionLanguage);
+    }
     if (Array.isArray(book.languages) && book.languages.length) {
         var first = book.languages[0];
         if (first && first.key) return formatLanguage(first.key);
@@ -393,7 +584,13 @@ function getLanguage(book, edition) {
 
 function formatLanguage(code) {
     var codeStr = String(code).split("/").pop().toLowerCase();
-    var map = { eng: "English", urd: "Urdu", ara: "Arabic", fas: "Persian", hin: "Hindi", spa: "Spanish", fra: "French", deu: "German", ita: "Italian", por: "Portuguese", rus: "Russian", tur: "Turkish", ben: "Bengali", ind: "Indonesian", jpn: "Japanese", kor: "Korean", chi: "Chinese" };
+    var map = {
+        eng: "English", urd: "Urdu", ara: "Arabic", fas: "Persian", per: "Persian",
+        hin: "Hindi", spa: "Spanish", fra: "French", fre: "French",
+        deu: "German", ger: "German", ita: "Italian", por: "Portuguese",
+        rus: "Russian", tur: "Turkish", ben: "Bengali", ind: "Indonesian",
+        jpn: "Japanese", kor: "Korean", chi: "Chinese"
+    };
     return map[codeStr] || codeStr.toUpperCase();
 }
 
@@ -666,17 +863,14 @@ function initializeNavigation() {
 }
 
 /* =========================================================
-   READER (No Prompt, No Native Fullscreen = No Zoom)
+   READER
 ========================================================= */
 function openReader() {
     if (!state.ia) return;
 
     var container = elements.readerContainer;
     var iframe = elements.readerIframe;
-    if (!container || !iframe) {
-        console.warn("Reader container not found");
-        return;
-    }
+    if (!container || !iframe) return;
 
     if (elements.readerToolbarTitle) {
         elements.readerToolbarTitle.textContent = cleanText(state.book.title || "Reading");

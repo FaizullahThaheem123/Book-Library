@@ -1,6 +1,6 @@
 /* =========================================================
    BOOK LIBRARY — BOOKS PAGE JAVASCRIPT
-   Version 4.0 (Free Filter + Language Filter)
+   Version 8.0 (Language Filter — English Excluded)
 ========================================================= */
 
 "use strict";
@@ -9,16 +9,15 @@ const CONFIG = {
     API_URL: "https://openlibrary.org/search.json",
     ARCHIVE_URL: "https://archive.org",
     COVER_URL: "https://covers.openlibrary.org/b/id",
-    PAGE_SIZE: 20,
+    PAGE_SIZE: 100,
     DEFAULT_QUERY: "best books",
-    MAX_LOAD: 100,
+    MAX_LOAD: 200,
     FAVORITES_KEY: "bookLibraryFavorites",
     THEME_KEY: "bookLibraryTheme",
     DETAILS_PAGE: "../book-details/book-details.html",
     SEARCH_PAGE: "../search/search.html"
 };
 
-// ✅ Language code → Name map
 const LANGUAGE_NAMES = {
     eng: "English", urd: "Urdu", ara: "Arabic", hin: "Hindi",
     fre: "French", ger: "German", spa: "Spanish", ita: "Italian",
@@ -79,7 +78,6 @@ document.addEventListener("DOMContentLoaded", function () {
     loadInitialBooks();
 });
 
-/* ===== THEME SYNC ===== */
 function setupThemeSync() {
     window.addEventListener("storage", function (e) {
         if (e.key === CONFIG.THEME_KEY) {
@@ -95,7 +93,6 @@ function setupThemeSync() {
     });
 }
 
-/* ===== HEADER ===== */
 function initializeHeaderEvents() {
     if (elements.headerSearchBtn) {
         elements.headerSearchBtn.addEventListener("click", function () {
@@ -140,7 +137,6 @@ function initializeMobileMenu() {
     });
 }
 
-/* ===== LOAD INITIAL ===== */
 function getQueryFromURL() {
     const params = new URLSearchParams(window.location.search);
     return params.get("q") || params.get("subject") || "";
@@ -174,7 +170,58 @@ function initializeSearch() {
     });
 }
 
-/* ===== SEARCH ===== */
+/* =========================================================
+   LANGUAGE MATCH HELPER
+========================================================= */
+function getLangCode(lang) {
+    if (!lang) return "";
+    var str = typeof lang === "object" ? (lang.key || lang.code || "") : String(lang);
+    return str.replace("/languages/", "").trim().toLowerCase();
+}
+
+function hasLanguage(book, langCode) {
+    if (!Array.isArray(book.language)) return false;
+    var target = langCode.toLowerCase();
+    return book.language.some(function (l) { return getLangCode(l) === target; });
+}
+
+function hasEnglish(book) {
+    return hasLanguage(book, "eng");
+}
+
+function isFocusedLanguage(book, langCode) {
+    // ✅ Book must have the target language
+    if (!hasLanguage(book, langCode)) return false;
+
+    var target = langCode.toLowerCase();
+
+    // ✅ If target is English — no extra filter
+    if (target === "eng") return true;
+
+    // ✅ Reject if English is present (means it's a Western work)
+    if (hasEnglish(book)) return false;
+
+    // ✅ Reject if a "Western" language is the FIRST language
+    var firstLang = getLangCode(book.language[0]);
+    var westernLangs = ["eng", "ger", "fre", "ita", "spa", "por", "rus", "dut", "swe"];
+    if (westernLangs.indexOf(firstLang) !== -1) return false;
+
+    return true;
+}
+
+function getLanguagePriority(book, langCode) {
+    // Sort helper: higher = more focused
+    if (!Array.isArray(book.language)) return 0;
+    var target = langCode.toLowerCase();
+    var firstLang = getLangCode(book.language[0]);
+    if (firstLang === target) return 100;    // Target is first
+    if (hasLanguage(book, target)) return 50; // Target somewhere
+    return 0;
+}
+
+/* =========================================================
+   SEARCH — with Smart Language Filtering
+========================================================= */
 function searchBooks(reset = false) {
     if (state.loading) return;
     state.loading = true;
@@ -188,28 +235,43 @@ function searchBooks(reset = false) {
     }
 
     const url = new URL(CONFIG.API_URL);
-    url.searchParams.set("q", state.query);
+
+    const hasLanguageFilter = state.language && state.language !== "all";
+    const hasCategoryFilter = state.filter !== "all" && state.filter !== "free";
+    const categoryKeyword = hasCategoryFilter ? getFilterKeyword(state.filter) : "";
+
+    if (hasLanguageFilter) {
+        const parts = [];
+
+        if (state.query && state.query !== CONFIG.DEFAULT_QUERY) {
+            parts.push(state.query);
+        }
+
+        parts.push(`language:${state.language}`);
+
+        if (categoryKeyword) {
+            parts.push(`subject:"${categoryKeyword}"`);
+        }
+
+        url.searchParams.set("q", parts.join(" AND "));
+    } else {
+        url.searchParams.set("q", state.query);
+
+        if (categoryKeyword) {
+            url.searchParams.set("subject", categoryKeyword);
+        }
+    }
+
+    if (state.filter === "free") {
+        url.searchParams.set("has_fulltext", "true");
+    }
+
     url.searchParams.set("page", state.page);
-    url.searchParams.set("limit", CONFIG.PAGE_SIZE);
+    url.searchParams.set("limit", hasLanguageFilter ? 200 : CONFIG.PAGE_SIZE);
     url.searchParams.set(
         "fields",
         "key,title,author_name,first_publish_year,cover_i,edition_key,publisher,subject,ia,ebook_access,public_scan_b,language"
     );
-
-    // ✅ Free Only → API level filter
-    if (state.filter === "free") {
-        url.searchParams.set("has_fulltext", "true");
-    } else if (state.filter !== "all") {
-        const keyword = getFilterKeyword(state.filter);
-        if (keyword) {
-            url.searchParams.set("subject", keyword);
-        }
-    }
-
-    // ✅ Language filter
-    if (state.language && state.language !== "all") {
-        url.searchParams.set("language", state.language);
-    }
 
     fetch(url.toString())
         .then(response => {
@@ -217,8 +279,24 @@ function searchBooks(reset = false) {
             return response.json();
         })
         .then(data => {
+            let newBooks = Array.isArray(data.docs) ? data.docs : [];
             state.total = Number(data.numFound) || 0;
-            const newBooks = Array.isArray(data.docs) ? data.docs : [];
+
+            // ✅ CLIENT-SIDE LANGUAGE FILTER
+            if (hasLanguageFilter) {
+                newBooks = newBooks.filter(function (book) {
+                    return isFocusedLanguage(book, state.language);
+                });
+
+                // ✅ Sort by how focused the book is (target language first)
+                newBooks.sort(function (a, b) {
+                    return getLanguagePriority(b, state.language) - getLanguagePriority(a, state.language);
+                });
+
+                // ✅ Show only first PAGE_SIZE for "load more" pagination
+                newBooks = newBooks.slice(0, CONFIG.PAGE_SIZE);
+            }
+
             if (reset) state.books = newBooks;
             else state.books = [...state.books, ...newBooks];
             hideLoading();
@@ -242,7 +320,6 @@ function updateURL(query) {
     window.history.replaceState({}, "", url);
 }
 
-/* ===== RENDER ===== */
 function renderBooks() {
     let books = [...state.books];
     books = applyFilter(books);
@@ -267,6 +344,9 @@ function getAccessBadge(book) {
     return { text: "⚪ Info", cls: "info" };
 }
 
+/* =========================================================
+   CARD — Show selected language first
+========================================================= */
 function createBookCard(book, index) {
     const title = cleanText(book.title || "Unknown Title");
     const author = cleanText(getAuthor(book));
@@ -277,13 +357,31 @@ function createBookCard(book, index) {
     const delay = Math.min(index * 0.025, 0.5);
     const badge = getAccessBadge(book);
 
-    // ✅ Language display
+    // ✅ Language display — selected language first
     let langText = "";
     if (Array.isArray(book.language) && book.language.length) {
-        const langs = book.language
-            .map(l => LANGUAGE_NAMES[String(l).replace("/languages/", "")] || "")
-            .filter(Boolean);
-        langText = langs.slice(0, 2).join(", ");
+        var langs = book.language.map(getLangCode).filter(Boolean);
+        var uniqueLangs = [];
+        langs.forEach(function (l) {
+            if (uniqueLangs.indexOf(l) === -1) uniqueLangs.push(l);
+        });
+
+        if (state.language && state.language !== "all") {
+            var target = state.language.toLowerCase();
+            // Selected language ko front pe rakho
+            var ordered = [];
+            if (uniqueLangs.indexOf(target) !== -1) ordered.push(target);
+            uniqueLangs.forEach(function (l) {
+                if (l !== target) ordered.push(l);
+            });
+            var display = ordered.slice(0, 2)
+                .map(function (l) { return LANGUAGE_NAMES[l] || l.toUpperCase(); });
+            langText = display.join(", ");
+        } else {
+            langText = uniqueLangs.slice(0, 2)
+                .map(function (l) { return LANGUAGE_NAMES[l] || l.toUpperCase(); })
+                .join(", ");
+        }
     }
 
     return `
@@ -348,24 +446,36 @@ function attachBookEvents() {
         btn.addEventListener("click", function (e) {
             e.stopPropagation();
             const key = this.dataset.details;
-            openBookDetails(key);
+            const book = state.books.find(b => normalizeKey(b.key) === normalizeKey(key));
+            openBookDetails(key, book);
         });
     });
     document.querySelectorAll(".book-card").forEach(card => {
         card.addEventListener("click", function () {
             const key = this.dataset.key;
-            openBookDetails(key);
+            const book = state.books.find(b => normalizeKey(b.key) === normalizeKey(key));
+            openBookDetails(key, book);
         });
     });
 }
 
-function openBookDetails(key) {
+function openBookDetails(key, book) {
     if (!key) return;
     saveRecentBook(key);
-    window.location.href = `${CONFIG.DETAILS_PAGE}?key=${encodeURIComponent(key)}`;
+    let url = `${CONFIG.DETAILS_PAGE}?key=${encodeURIComponent(key)}`;
+
+    if (book && Array.isArray(book.ia) && book.ia.length) {
+        const ia = book.ia.find(function (x) { return typeof x === "string" && x.trim(); });
+        if (ia) url += `&ia=${encodeURIComponent(ia)}`;
+    }
+
+    if (state.language && state.language !== "all") {
+        url += `&lang=${encodeURIComponent(state.language)}`;
+    }
+
+    window.location.href = url;
 }
 
-/* ===== FAVORITES ===== */
 function getFavorites() {
     try { return JSON.parse(localStorage.getItem(CONFIG.FAVORITES_KEY)) || []; }
     catch { return []; }
@@ -412,7 +522,6 @@ function saveRecentBook(key) {
     localStorage.setItem("bookLibraryRecent", JSON.stringify(recent));
 }
 
-/* ===== FILTERS ===== */
 function initializeFilters() {
     document.querySelectorAll(".filter-btn").forEach(btn => {
         btn.addEventListener("click", function () {
@@ -426,7 +535,6 @@ function initializeFilters() {
 }
 
 function applyFilter(books) {
-    // Free Only — client-side safety filter
     if (state.filter === "free") {
         return books.filter(function (b) {
             return b.ebook_access === "public" || b.public_scan_b === true;
@@ -446,7 +554,6 @@ function getFilterKeyword(filter) {
     return map[filter] || "";
 }
 
-/* ===== SORT ===== */
 function initializeSorting() {
     if (!elements.sortSelect) return;
     elements.sortSelect.addEventListener("change", function () {
@@ -468,7 +575,6 @@ function applySort(books) {
     }
 }
 
-/* ===== LANGUAGE ===== */
 function initializeLanguage() {
     if (!elements.languageSelect) return;
     elements.languageSelect.addEventListener("change", function () {
@@ -482,7 +588,6 @@ function updateLanguageNotice() {
     const notice = elements.languageNotice;
     if (!notice) return;
 
-    // Specific language selected
     if (state.language && state.language !== "all") {
         const langName = LANGUAGE_NAMES[state.language] || state.language;
 
@@ -499,7 +604,6 @@ function updateLanguageNotice() {
         return;
     }
 
-    // All languages — show what's available
     if (state.books.length > 0) {
         const availableLangs = getAvailableLanguages(state.books);
         if (availableLangs.length > 1) {
@@ -520,7 +624,7 @@ function getAvailableLanguages(books) {
     books.forEach(book => {
         if (Array.isArray(book.language)) {
             book.language.forEach(l => {
-                const code = String(l).replace("/languages/", "").trim();
+                const code = getLangCode(l);
                 if (code) langs.add(code);
             });
         }
@@ -535,7 +639,6 @@ function hideLanguageNotice() {
     }
 }
 
-/* ===== LOAD MORE ===== */
 function initializeLoadMore() {
     if (!elements.loadMoreButton) return;
     elements.loadMoreButton.addEventListener("click", function () {
@@ -556,7 +659,6 @@ function updateLoadMore() {
         `Showing ${loaded.toLocaleString()} books from the available results`;
 }
 
-/* ===== QUICK SEARCH ===== */
 function initializeQuickSearch() {
     document.querySelectorAll("[data-search]").forEach(btn => {
         btn.addEventListener("click", function () {
@@ -570,7 +672,6 @@ function initializeQuickSearch() {
     });
 }
 
-/* ===== RESET ===== */
 function initializeReset() {
     if (!elements.resetSearch) return;
     elements.resetSearch.addEventListener("click", function () {
@@ -588,7 +689,6 @@ function initializeReset() {
     });
 }
 
-/* ===== RANDOM BOOK ===== */
 function initializeRandomBook() {
     if (!elements.randomBookButton) return;
     elements.randomBookButton.addEventListener("click", function () {
@@ -606,7 +706,6 @@ function initializeRandomBook() {
     });
 }
 
-/* ===== RESULTS INFO ===== */
 function updateResultsInfo() {
     if (!elements.resultsTitle || !elements.resultsInfo) return;
     if (state.query) {
@@ -617,7 +716,6 @@ function updateResultsInfo() {
     }
 }
 
-/* ===== LOADING / EMPTY ===== */
 function showLoading() {
     if (elements.loadingState) elements.loadingState.classList.add("show");
     if (elements.emptyState) elements.emptyState.classList.remove("show");
@@ -634,7 +732,6 @@ function hideEmpty() {
     if (elements.emptyState) elements.emptyState.classList.remove("show");
 }
 
-/* ===== TOAST ===== */
 function showToast(message, icon = "✓") {
     if (!elements.toast) return;
     elements.toastMessage.textContent = message;
@@ -644,7 +741,6 @@ function showToast(message, icon = "✓") {
     toastTimer = setTimeout(() => elements.toast.classList.remove("show"), 2600);
 }
 
-/* ===== HELPERS ===== */
 function cleanText(text) {
     return String(text).replace(/\s+/g, " ").trim();
 }
